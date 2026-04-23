@@ -154,6 +154,26 @@ This ADR does **not** cover:
 - Defense-rating-to-skill conversion at max level. That's covered in `Classes.lua`'s `DEFENSE_RATING_PER_SKILL = 2.3654` constant, for which the reference is the standard `1 / 0.4228` ratio cited across the same sources.
 - Block *value* (damage absorbed per block), which is a separate stat not on the avoidance table.
 
+## Postscript — Applying the formula vs the 102.4% cap target (2026-04-23)
+
+The server-side formula above is correct about what happens at combat-roll time. It is **not**, however, what you compare against the 102.4% uncrushable cap. A later cross-check against five additional sources — four peer addons (`AvoidanceRating`, `AvoidanceStatsTBC`, `Unbreakable Paladin`, `CharacterStatsTBC`) read directly from the user's `Interface\AddOns\` directory, plus the "Libram of Protection" top-ranker paladin guide (Google Doc) — revealed a unanimous convention: **the 102.4% target is for the sum of character-sheet values** (`GetDodgeChance() + GetParryChance() + GetBlockChance() + 5% base miss + (defense_skill − 350) × 0.04%`), with no `−0.6%` adjustment before comparison.
+
+The "Libram of Protection" guide is explicit on this point. The guide's own slash-script in the post reads:
+
+```
+/script DEFAULT_CHAT_FRAME:AddMessage("Need 102.4 combined avoidance. Currently at:",0.8,0.8,1)
+/script DEFAULT_CHAT_FRAME:AddMessage(GetDodgeChance()+GetBlockChance()+GetParryChance()+5+
+(GetCombatRating(CR_DEFENSE_SKILL)*150/355 + 20)*0.04,1,0.5,0)
+```
+
+Sheet values summed directly, `5%` miss base un-adjusted, compared against `102.4`. The author also says in the narrative text: *"this calculation has already subtracted the 2.4% total miss, dodge, parry, and block reduction for you"* — confirming that the `102.4%` number absorbs the skill-diff penalty implicitly.
+
+Mathematical derivation: crushing is off the table when effective `Miss + Dodge + Parry + Block ≥ 100%`. Since effective = sheet − `4 × 0.6%` = sheet − `2.4%`, the sheet-value equivalent is sheet ≥ `102.4%`. Every addon and authoritative guide we checked uses the sheet form because it matches the number WoW displays on the character pane and the number the community cites.
+
+Versions of `UncrushableHelper` prior to `v0.1.2` subtracted `0.6%` from each of the four components before comparing against `102.4%`, effectively requiring `sheet ≥ 104.8%`. That was a double-count — the addon silently told users they were `CRUSHABLE` when they were actually uncrushable per the community consensus and per the server-side math applied correctly. Fixed in `v0.1.2` (see `CHANGELOG`).
+
+The four server-code sources cited in the main body above **remain valid and accurate** about what the combat roll does internally. This ADR does not retract them. The postscript only clarifies how the result is used when comparing against the community-standard cap target.
+
 ## References
 
 - [magey/tbc-warrior Wiki — Attack-table](https://github.com/magey/tbc-warrior/wiki/Attack-table)
@@ -161,3 +181,11 @@ This ADR does **not** cover:
 - [cmangos/mangos-tbc — `src/game/Entities/Unit.cpp`](https://github.com/cmangos/mangos-tbc/blob/master/src/game/Entities/Unit.cpp) (functions `CalculateEffectiveDodgeChance`, `CalculateEffectiveParryChance`, `CalculateEffectiveBlockChance`, `CalculateEffectiveMissChance`)
 - [azerothcore/azerothcore-wotlk — `src/server/game/Entities/Unit/Unit.cpp`](https://github.com/azerothcore/azerothcore-wotlk/blob/master/src/server/game/Entities/Unit/Unit.cpp) (function `RollMeleeOutcomeAgainst` and `MeleeSpellMissChance`)
 - [`Calc.lua`](../../Calc.lua) — implementation under audit
+
+### Postscript sources (peer-addon and guide cross-check, 2026-04-23)
+
+- [AvoidanceRating on CurseForge](https://www.curseforge.com/wow/addons/avoidance-rating) — `AvoidanceRating.lua:1-24`. Sums `GetDodgeChance() + GetParryChance() + GetBlockChance() + 5 + (defense_skill − 350) × 0.04` vs 102.4%. No per-stat penalty applied.
+- [AvoidanceStats TBC on CurseForge](https://www.curseforge.com/wow/addons/avoidancestats-tbc) — `AvoidanceStats.lua:158-161` computes Miss with `5 + (d-350)*0.04 - 0.6` (note: applies `−0.6` to Miss specifically, unlike other addons) but uses `GetDodgeChance/Parry/Block` directly without `−0.6`. Compares sum against 102.4%.
+- [Unbreakable Paladin on CurseForge](https://www.curseforge.com/wow/addons/unbreakable-paladin) — `main.lua:1-20`. `Dodge + Block + Parry + 5 + defense_contribution`, adds `+30` when Holy Shield is down (simulating it on). No per-stat penalty.
+- [CharacterStatsTBC on GitHub](https://github.com/getov/CharacterStatsTBC) — `CharacterStatsTbcCore.lua`. Paperdoll frame uses `GetDodgeChance()` / `GetParryChance()` / `GetBlockChance()` directly; only its `missChanceVsBoss` helper adjusts for weapon-skill-diff (but that's player attacking boss, not the defensive table).
+- "Libram of Protection" — top-ranker Protection Paladin guide (Google Doc shared by user, 2026-04-23). Lines 870-874 and 1230-1234. Explicitly states the `102.4%` target already absorbs the `2.4%` level-diff penalty, and provides a slash-script that sums sheet values directly against that target.

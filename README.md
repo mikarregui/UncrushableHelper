@@ -84,17 +84,18 @@ Open the window on a rogue, hunter, mage, or a paladin in Ret with a 2H and you 
 
 ## How the numbers are calculated
 
-Against a raid boss (+3 levels above the player):
+Against a +3 raid boss, the addon sums the four character-sheet avoidance values and compares against the 102.4% cap:
 
 ```
-miss  = clampNonNeg(5 − 0.6 + (defenseSkill − 350) × 0.04)
-dodge = clampNonNeg(GetDodgeChance()  − 0.6)
-parry = clampNonNeg(GetParryChance()  − 0.6)
-block = clampNonNeg(GetBlockChance()  − 0.6)
+miss  = 5 + (defenseSkill − 350) × 0.04
+dodge = GetDodgeChance()
+parry = GetParryChance()
+block = GetBlockChance()           (only when a shield is equipped)
 total = miss + dodge + parry + block
+uncrushable = total ≥ 102.4
 ```
 
-The `− 0.6` is the per-level combat-table shift (0.2% per level × 3 levels). The addon is locked to +3 because crushing blows — and therefore the 102.4% cap — only exist at that level difference. An earlier iteration exposed a target-level dropdown with +0/+1/+2/+3 options; it was removed to keep the frame focused on the scenario that matters.
+The `102.4%` target already absorbs the `2.4%` the server removes via weapon-skill-deficit penalties at combat-roll time (`0.2%` per level × 3 levels = `0.6%` per component × 4 components = `2.4%`). So the sum above is compared directly against `102.4%` with no further adjustment. This matches the convention every peer tank addon and TBC theorycrafter uses; see [ADR 0003](docs/adr/0003-combat-table-formula-for-player-defender.md) for the full derivation, cross-check against five independent sources, and the history of why an earlier version of this addon double-counted the penalty.
 
 When planned buffs are toggled, the primary number shifts to reflect the projected post-buff state (Flask of Fortification's +10 Defense Rating is exact; agility-based buffs use a per-class `AGI_PER_DODGE_PCT` table; Blessing of Kings uses `UnitStat` × 0.1). The live value stays accessible via the title hover tooltip. See [docs/adr/0002](docs/adr/0002-planning-toggles-as-checklist.md) for the reasoning.
 

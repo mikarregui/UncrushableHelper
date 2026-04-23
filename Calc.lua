@@ -170,22 +170,19 @@ function ns.calc:ComputeSnapshot(ctx)
         end
     end
 
-    -- Miss vs +3 boss:
-    --   base 5% − 0.2%/level × 3 = 4.4%, plus +0.04% per Defense Skill above 350.
-    local levelPenalty = ns.PER_LEVEL_SHIFT * ns.BOSS_LEVEL_DIFF
-    local missBase     = ns.BASE_MISS - levelPenalty
-    local missFromDef  = (defSkill - 350) * 0.04
-    local miss         = clampNonNeg(missBase + missFromDef)
-
-    -- Dodge / Parry / Block: GetDodgeChance etc. already bake in base +
-    -- stats + rating + talents vs a same-level target. The +3 level
-    -- penalty is not included, so we subtract it manually.
-    local dodge = clampNonNeg((GetDodgeChance() or 0) - levelPenalty)
-    local parry = clampNonNeg((GetParryChance() or 0) - levelPenalty)
-
+    -- Avoidance components vs +3 raid boss, computed in character-sheet
+    -- space so the sum compares directly against TARGET_CAP = 102.4%.
+    -- That target already absorbs the 2.4% the server removes via a
+    -- 0.04%-per-skill-deficit applied to each of Miss/Dodge/Parry/Block;
+    -- subtracting it again here would be a double-count. See ADR 0003
+    -- postscript for the derivation and the five peer sources that
+    -- corroborate this interpretation.
+    local miss  = clampNonNeg(ns.BASE_MISS + (defSkill - 350) * 0.04)
+    local dodge = GetDodgeChance() or 0
+    local parry = GetParryChance() or 0
     local block = 0
     if mode == "block" then
-        block = clampNonNeg((GetBlockChance() or 0) - levelPenalty)
+        block = GetBlockChance() or 0
     end
 
     snap.miss  = miss
@@ -194,13 +191,13 @@ function ns.calc:ComputeSnapshot(ctx)
     snap.block = block
     snap.total = miss + dodge + parry + block
 
-    snap.components.miss  = { value = miss,  label = "Miss",  formula = "5 + (def-350)*0.04 - 0.6" }
-    snap.components.dodge = { value = dodge, label = "Dodge", formula = "GetDodgeChance() - 0.6" }
-    snap.components.parry = { value = parry, label = "Parry", formula = "GetParryChance() - 0.6" }
+    snap.components.miss  = { value = miss,  label = "Miss",  formula = "5 + (def-350)*0.04" }
+    snap.components.dodge = { value = dodge, label = "Dodge", formula = "GetDodgeChance()" }
+    snap.components.parry = { value = parry, label = "Parry", formula = "GetParryChance()" }
     snap.components.block = {
         value      = block,
         label      = "Block",
-        formula    = "GetBlockChance() - 0.6",
+        formula    = "GetBlockChance()",
         applicable = mode == "block",
     }
 
@@ -217,10 +214,13 @@ function ns.calc:ComputeSnapshot(ctx)
         end
     elseif mode == "druid-special" then
         snap.isUncrushable = nil
+        local armor = snap.armor or 0
+        local mitigation = armor / (armor + ns.ARMOR_MITIGATION_K_L70) * 100
         snap.druidGoals = {
             defenseTarget = ns.ANTI_CRIT_DEFENSE_TARGET_DRUID,
             defenseOk     = defSkill >= ns.ANTI_CRIT_DEFENSE_TARGET_DRUID,
-            armor         = snap.armor,
+            armor         = armor,
+            mitigation    = mitigation,
         }
     else
         snap.isUncrushable = nil

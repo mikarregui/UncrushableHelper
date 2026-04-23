@@ -1,26 +1,38 @@
 local addonName, ns = ...
 
--- Target total avoidance vs a raid boss (+3 levels over the player).
--- Getting to this number means Crushing Blow and Regular Hit fall off the
--- attack table — the tank is "uncrushable". The 2.4% above 100 is the
--- inherent level-based bias bosses have against lower-level defenders.
-ns.TARGET_CAP       = 102.4
-ns.BOSS_LEVEL_DIFF  = 3
+-- Target total avoidance vs a +3 raid boss, compared against the sum of
+-- character-sheet avoidance values (Miss + Dodge + Parry + Block). The
+-- 2.4% above 100 already absorbs the four 0.04%-per-skill-deficit
+-- penalties the server applies at combat-roll time (0.2% × 3 levels = 0.6%
+-- per component × 4 components = 2.4%). In other words: sum the raw sheet
+-- values, compare against 102.4, do not subtract anything beforehand.
+-- See docs/adr/0003 postscript for the derivation and peer-addon
+-- corroboration (AvoidanceRating, AvoidanceStatsTBC, Unbreakable Paladin,
+-- CharacterStatsTBC, and the "Libram of Protection" top-ranker guide).
+ns.TARGET_CAP = 102.4
 
--- Per-level combat table shift vs same-level target: each level of the
--- attacker above the defender shifts every avoidance outcome down by 0.2%.
--- Against a boss (+3), each of Miss/Dodge/Parry/Block loses 0.6%.
-ns.PER_LEVEL_SHIFT  = 0.2
-
--- Base chance to be missed by a same-level attacker.
-ns.BASE_MISS        = 5.0
+-- Base chance to be missed by a same-level attacker. Used as-is in the
+-- Miss component — the 102.4% target handles the +3 boss adjustment
+-- implicitly, so we do NOT subtract per-level shift here.
+ns.BASE_MISS  = 5.0
 
 -- Defense Skill a druid needs vs a +3 boss to be crit-immune given the
 -- -3% crit reduction from the Survival of the Fittest talent:
---   boss base crit 5% + 3 levels × 2% = 11%
---   crit removed per Defense Skill over 350 = 0.04%
---   350 + (11 - 3) / 0.04 = 415
+--   boss crit vs lvl 70 at 350 defense = 5% base + 15 skill × 0.04% = 5.6%
+--   Survival of the Fittest crit-taken reduction                    = 3.0%
+--   remaining crit to offset via defense skill                      = 2.6%
+--   defense skill above 350 needed (each point removes 0.04% crit)  = 2.6 / 0.04 = 65
+--   target defense skill = 350 + 65                                 = 415
+-- For reference: warriors and paladins without SotF need the full 140
+-- skill over 350 = 490, which is the cap those classes chase instead.
 ns.ANTI_CRIT_DEFENSE_TARGET_DRUID = 415
+
+-- Armor-to-physical-mitigation denominator at level 70. Standard TBC
+-- formula: mitigation = armor / (armor + K), with K = 467.5 × level − 22167.5
+-- evaluating to 10557.5 at level 70. Used to surface mitigation % next
+-- to the raw armor number for druids (bears tank through armor, not
+-- block, so the % is the stat they actually care about).
+ns.ARMOR_MITIGATION_K_L70 = 10557.5
 
 -- Defense Rating → Defense Skill conversion at level 70. Used to simulate
 -- Flask of Fortification (which adds +10 Defense Rating, not raw skill).

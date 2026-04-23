@@ -57,7 +57,9 @@ if ldb then
                     tt:AddLine(status)
                 elseif snap.druidGoals then
                     tt:AddDoubleLine("Defense", tostring(snap.defenseSkill), 1, 1, 1, 1, 1, 1)
-                    tt:AddDoubleLine("Armor",   tostring(snap.druidGoals.armor), 1, 1, 1, 1, 1, 1)
+                    tt:AddDoubleLine("Armor",
+                        string.format("%d (%.1f%% mit.)", snap.druidGoals.armor, snap.druidGoals.mitigation or 0),
+                        1, 1, 1, 1, 1, 1)
                 end
             end
             tt:AddLine("Left-click: open/close", 1, 1, 1)
@@ -281,10 +283,14 @@ local function buildMainFrame()
     breakdown.parry = makeRow(mainFrame, yStart - 2*(ROW_HEIGHT+2), "Parry")
     breakdown.block = makeRow(mainFrame, yStart - 3*(ROW_HEIGHT+2), "Block")
 
-    -- Druid goals section (hidden by default)
+    -- Druid goals section. Anchored relative to the last breakdown row so
+    -- its vertical position flows naturally regardless of frame resize.
+    -- Hidden for non-druids (see applySnapshotToFrame); the raid-buffs
+    -- header below is anchored conditionally so it doesn't overlap the
+    -- druidSection when the druid section is visible.
     druidSection = CreateFrame("Frame", nil, mainFrame)
     druidSection:SetSize(FRAME_WIDTH - 2 * PADDING, 50)
-    druidSection:SetPoint("TOPLEFT", mainFrame, "TOPLEFT", PADDING, yStart - 4*(ROW_HEIGHT+2) - 4)
+    druidSection:SetPoint("TOPLEFT", breakdown.block.frame, "BOTTOMLEFT", 0, -6)
 
     druidSection.defenseFS = druidSection:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     druidSection.defenseFS:SetPoint("TOPLEFT", druidSection, "TOPLEFT", 0, 0)
@@ -296,9 +302,15 @@ local function buildMainFrame()
 
     druidSection:Hide()
 
-    -- Buffs section header
+    -- Buffs section header. Anchored below druidSection for druids (so
+    -- the two don't overlap), below the block row otherwise. Class is
+    -- fixed for the session so branching once at build time is fine.
     buffsHeaderFS = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    buffsHeaderFS:SetPoint("TOPLEFT", mainFrame, "TOPLEFT", PADDING, yStart - 4*(ROW_HEIGHT+2) - 14)
+    if ns.state and ns.state.classFile == "DRUID" then
+        buffsHeaderFS:SetPoint("TOPLEFT", druidSection, "BOTTOMLEFT", 0, -6)
+    else
+        buffsHeaderFS:SetPoint("TOPLEFT", breakdown.block.frame, "BOTTOMLEFT", 0, -16)
+    end
     buffsHeaderFS:SetText("Raid buffs — check = active · click to plan")
     setColor(buffsHeaderFS, COLOR_MUTED_LABEL)
 
@@ -492,12 +504,10 @@ local function applySnapshotToFrame(snap)
         }
     end
 
-    -- Personal-cooldowns section visibility. The rows only matter for
-    -- shield-wearing tanks; hide them (and shrink the frame back to
-    -- FRAME_HEIGHT_BASE) when the player isn't in block mode so the
-    -- extra height doesn't show up as dead space.
+    -- Personal-cooldowns section visibility. Rows only apply to shield-
+    -- wearing tanks; hide them when the player isn't in block mode.
+    local showPersonalCDs = personalCDsHeaderFS ~= nil and snap.mode == "block"
     if personalCDsHeaderFS then
-        local showPersonalCDs = snap.mode == "block"
         if showPersonalCDs then
             personalCDsHeaderFS:Show()
             for _, row in pairs(personalCDRows) do row:Show() end
@@ -505,13 +515,9 @@ local function applySnapshotToFrame(snap)
             personalCDsHeaderFS:Hide()
             for _, row in pairs(personalCDRows) do row:Hide() end
         end
-        local targetHeight = showPersonalCDs and FRAME_HEIGHT_EXTENDED or FRAME_HEIGHT_BASE
-        if mainFrame:GetHeight() ~= targetHeight then
-            mainFrame:SetHeight(targetHeight)
-        end
     end
 
-    -- Druid extras.
+    -- Druid extras. Shown for druid-special mode (any druid).
     if snap.druidGoals then
         druidSection:Show()
         local defColor = snap.druidGoals.defenseOk and COLOR_GREEN or COLOR_RED
@@ -520,10 +526,25 @@ local function applySnapshotToFrame(snap)
             snap.defenseSkill or 0,
             snap.druidGoals.defenseTarget))
         setColor(druidSection.defenseFS, defColor)
-        druidSection.armorFS:SetText(string.format("Armor: %d", snap.druidGoals.armor or 0))
+        druidSection.armorFS:SetText(string.format(
+            "Armor: %d  (%.1f%% physical mitigation)",
+            snap.druidGoals.armor or 0,
+            snap.druidGoals.mitigation or 0))
         setColor(druidSection.armorFS, COLOR_MUTED_LABEL)
     else
         druidSection:Hide()
+    end
+
+    -- Frame height. Extended when EITHER personal cooldowns are visible
+    -- OR the druid section is visible — both occupy a similar ~50 px
+    -- slot between the breakdown rows and the raid-buffs header. They
+    -- are class-exclusive in practice (druids don't get personal CDs
+    -- and block-classes don't get druidSection), so there's no case
+    -- where both are shown at once.
+    local wantsExtended = showPersonalCDs or snap.druidGoals ~= nil
+    local targetHeight = wantsExtended and FRAME_HEIGHT_EXTENDED or FRAME_HEIGHT_BASE
+    if mainFrame:GetHeight() ~= targetHeight then
+        mainFrame:SetHeight(targetHeight)
     end
 end
 

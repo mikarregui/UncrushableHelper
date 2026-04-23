@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-04-23
+
+### Added
+
+- **Physical mitigation % next to the Armor line** in the druid section. The raw armor number is now shown together with its damage-reduction percentage (e.g. `Armor: 15230  (59.1% physical mitigation)`), computed at level 70 via `armor / (armor + 10557.5)`. Bears tank through armor rather than block, so the % is the stat they actually care about — the raw number alone wasn't actionable. Same mitigation % is appended to the minimap-icon tooltip for consistency.
+
+### Fixed
+
+- **Druid layout overlap.** The `Defense Skill` and `Armor` goal lines for druids were anchored with a fixed absolute offset that collided with the "Raid buffs —" header beneath them — they rendered on top of the buff rows and looked unreadable. Fixed: the druid section now anchors below the last breakdown row, and the raid-buffs header anchors below the druid section (only for druids; other classes still anchor directly below the breakdown). The frame also extends to the taller layout for druids so the extra section has room instead of being cramped into the base layout.
+- **Incorrect math in the `ANTI_CRIT_DEFENSE_TARGET_DRUID` constant comment.** The constant value (415) was correct and matches community references, but the intermediate arithmetic in its comment stated `boss base crit 5% + 3 levels × 2% = 11%` — which is both a wrong "per-level crit bonus" and gives `(11 − 3) / 0.04 = 200`, not the 65 needed to land at 415. Replaced with the correct derivation: boss crit = 5% + (15 skill diff × 0.04%) = 5.6%; Survival of the Fittest removes 3%; remaining 2.6% / 0.04% per skill = 65 skill over 350 = 415 target.
+- **Total avoidance was underreported by ~2.4%, producing false CRUSHABLE verdicts for tanks that were actually uncrushable.** Root cause: the addon was subtracting `0.6%` from each of Miss / Dodge / Parry / Block before comparing the sum against `102.4%`. That amounts to a double-count — the `102.4%` cap target is derived from character-sheet values and already absorbs the `2.4%` the server removes at combat-roll time via weapon-skill-diff penalties. Comparing sheet-minus-2.4% against 102.4% silently required sheet ≥ 104.8%.
+
+  The fix: sum `GetDodgeChance()` / `GetParryChance()` / `GetBlockChance()` directly, with Miss as `5 + (defenseSkill − 350) × 0.04%`, and compare against `102.4%` unchanged. This matches the formula every peer TBC tank addon uses (`AvoidanceRating`, `AvoidanceStatsTBC`, `Unbreakable Paladin`, `CharacterStatsTBC`) and the slash-script published in the "Libram of Protection" top-ranker paladin guide.
+
+  Effect for users: the total displayed goes up by 2.4% (or less, for non-shield characters) with no gear change. Some tanks previously marked CRUSHABLE will flip to UNCRUSHABLE; that's the correct state per the community consensus and the server math applied correctly.
+
+  [`docs/adr/0003`](docs/adr/0003-combat-table-formula-for-player-defender.md) has been extended with a postscript documenting the sheet-vs-effective distinction and the five peer sources that corroborate the fix. The four server-code sources cited in the main ADR remain valid — they accurately describe the combat-roll mechanic; the postscript just clarifies how that result is applied when comparing against 102.4%.
+
+### Removed
+
+- `ns.PER_LEVEL_SHIFT` and `ns.BOSS_LEVEL_DIFF` from `Classes.lua`. Both were byproducts of the incorrect `−0.6%` model and are no longer used anywhere. `ns.TARGET_CAP = 102.4` and `ns.BASE_MISS = 5.0` remain, with an expanded comment explaining how the target absorbs the penalty implicitly.
+
 ## [0.1.1] - 2026-04-23
 
 ### Added
@@ -45,6 +67,7 @@ Initial public release.
 - SavedVariables with schema versioning: `UncrushableHelperDB` (global UI preferences) and `UncrushableHelperPerCharDB` (minimap icon, main-frame position, plannedBuffs, targetBossLevelDiff).
 - Repository scaffolding: README with badges, CONTRIBUTING, LICENSE (MIT), `.editorconfig`, `.gitignore`, `.pkgmeta`, GitHub issue / PR templates, BigWigs Packager release workflow, ADRs `0001-horizontal-layers-over-vsa` and `0002-planning-toggles-as-checklist`.
 
-[Unreleased]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mikarregui/UncrushableHelper/releases/tag/v0.1.0

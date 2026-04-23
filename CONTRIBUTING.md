@@ -75,7 +75,7 @@ Install [BugGrabber](https://www.curseforge.com/wow/addons/bug-grabber) + [BugSa
 
 ### Validating numbers
 
-Open the character pane (C) and compare what it shows with the `/uh debug` output. The addon's Dodge/Parry/Block are `GetXChance() − 0.6` (the +3 boss level penalty). Miss is `5 − 0.6 + (defenseSkill − 350) × 0.04`. If the numbers disagree by more than rounding, something has drifted — investigate before merging.
+Open the character pane (C) and compare what it shows with the `/uh debug` output. The addon's Dodge / Parry / Block come straight from `GetDodgeChance()` / `GetParryChance()` / `GetBlockChance()` (no adjustment — the 102.4% cap target already absorbs the +3-boss skill-diff penalty implicitly). Miss is `5 + (defenseSkill − 350) × 0.04`. If the numbers disagree by more than rounding, something has drifted — investigate before merging. The derivation and cross-check against five peer sources is documented in `docs/adr/0003`.
 
 ### Syntax check before pushing
 
