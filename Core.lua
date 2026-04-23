@@ -31,9 +31,10 @@ local function migrateSavedVariables()
     perChar.minimap      = perChar.minimap      or {}
     perChar.mainFrame    = perChar.mainFrame    or { shown = false }
     perChar.plannedBuffs = perChar.plannedBuffs or {}
-    if perChar.targetBossLevelDiff == nil then
-        perChar.targetBossLevelDiff = 3  -- default: raid boss (+3)
-    end
+    -- `perChar.targetBossLevelDiff` is a legacy field from an earlier
+    -- iteration that exposed a target-level selector. The addon now
+    -- always calculates against +3 raid bosses; the field is left in SV
+    -- where already present (harmless) but no longer initialized or read.
 
     db.schemaVersion      = 1
     perChar.schemaVersion = 1
@@ -47,10 +48,9 @@ function ns:Publish()
 
     local perChar = UncrushableHelperPerCharDB
     local snap = ns.calc:ComputeSnapshot({
-        classFile     = ns.state.classFile,
-        activeSet     = ns.state.activeBuffs,
-        plannedSet    = perChar and perChar.plannedBuffs,
-        bossLevelDiff = perChar and perChar.targetBossLevelDiff,
+        classFile  = ns.state.classFile,
+        activeSet  = ns.state.activeBuffs,
+        plannedSet = perChar and perChar.plannedBuffs,
     })
     ns.state.snapshot = snap
 
@@ -128,8 +128,7 @@ local function printSnapshot()
         return
     end
 
-    print(CHAT_PREFIX .. "snapshot (" .. (snap.classInfo and snap.classInfo.label or snap.classFile or "?") .. ")")
-    print("  Target: +" .. tostring(snap.bossLevelDiff or 0) .. "  (penalty " .. formatPct(ns.PER_LEVEL_SHIFT * (snap.bossLevelDiff or 0)) .. " per component)")
+    print(CHAT_PREFIX .. "snapshot (" .. (snap.classInfo and snap.classInfo.label or snap.classFile or "?") .. " vs +3 raid boss)")
     print("  Defense Skill: " .. tostring(snap.defenseSkill or 0))
     print("  Miss:  " .. formatPct(snap.miss))
     print("  Dodge: " .. formatPct(snap.dodge))

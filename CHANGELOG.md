@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-04-23
+
+### Added
+
+- **Personal cooldowns section** in the main window, class-gated. Paladins see **Holy Shield** (+30% block while active); warriors see **Shield Block** (+75% block while active). Toggling them as *planned* simulates their block contribution the same way raid buffs do — useful for pre-pull checks like "would I be uncrushable if I keep Holy Shield rolling?". Auto-detection covers every known TBC rank. The section is hidden entirely for classes without a matching cooldown (druids, DPS, casters) and for paladins/warriors without a shield equipped (the cooldowns require one).
+- **[ADR 0003](docs/adr/0003-combat-table-formula-for-player-defender.md)** validating the defender-side combat-table formula (0.04% per weapon-skill differential applied equally to Miss / Dodge / Parry / Block when a mob attacks a player). Four independent sources corroborate: magey/tbc-warrior wiki + three open-source server emulators (TrinityTBC, CMangos-TBC, AzerothCore). Not a code change — the formula was already correct — but now documented rigorously so it doesn't have to be re-litigated.
+
+### Changed
+
+- The projected total no longer adds any `delta.block` contribution when the player can't block (no shield, or druid). Previously a shield-less warrior marking Flask of Fortification as planned would see a marginal block bump added to the total that would never actually apply.
+
+### Removed
+
+- **Target-level dropdown**. The previous iteration exposed a +0/+1/+2/+3 selector in the main window so users could see the breakdown against different target levels. It's gone: the addon now always calculates against a +3 raid boss (the only TBC scenario where crushing blows exist, and therefore the only one where the 102.4% cap is meaningful). A passive `Target: Raid boss (+3)` label sits where the dropdown was so the context stays visible. The dead code paths that handled lower diffs (`vs +N target — no crushing blows` status, clamping logic in `Calc:ComputeSnapshot`, the `bossLevelDiff` ctx field and snapshot field, the `targetBossLevelDiff` SV default) are all removed. Users who saved `targetBossLevelDiff` in their SavedVariables keep the field (harmless legacy), it just isn't read anymore.
+- **`CLAUDE.md` is no longer tracked in the repo** (moved to `.gitignore`). The file held project-internal notes — roadmap, working memory, non-formal design rationale. Formal architectural decisions stay documented under [`docs/adr/`](docs/adr/) and are still part of the public repo.
+
 ## [0.1.0] - 2026-04-23
 
 Initial public release.
@@ -29,5 +45,6 @@ Initial public release.
 - SavedVariables with schema versioning: `UncrushableHelperDB` (global UI preferences) and `UncrushableHelperPerCharDB` (minimap icon, main-frame position, plannedBuffs, targetBossLevelDiff).
 - Repository scaffolding: README with badges, CONTRIBUTING, LICENSE (MIT), `.editorconfig`, `.gitignore`, `.pkgmeta`, GitHub issue / PR templates, BigWigs Packager release workflow, ADRs `0001-horizontal-layers-over-vsa` and `0002-planning-toggles-as-checklist`.
 
-[Unreleased]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mikarregui/UncrushableHelper/releases/tag/v0.1.0

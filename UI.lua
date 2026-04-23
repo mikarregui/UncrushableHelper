@@ -2,8 +2,10 @@ local addonName, ns = ...
 
 ns.ui = {}
 
-local FRAME_WIDTH  = 300
-local FRAME_HEIGHT = 494
+local FRAME_WIDTH           = 300
+local FRAME_HEIGHT_BASE     = 494   -- no personal-cooldowns section visible
+local FRAME_HEIGHT_EXTENDED = 540   -- with header + 1 personal-cooldown row
+local FRAME_HEIGHT          = FRAME_HEIGHT_BASE  -- initial; adjusted at render time
 local PADDING      = 14
 local ROW_HEIGHT   = 20
 local BUFF_ROW_H   = 22
@@ -80,37 +82,16 @@ end)
 
 local mainFrame
 local header, titleFS, closeBtn
-local targetDropdown
 local totalFS, statusFS, subtitleFS
 local titleHoverFrame
 local breakdown = {}
 local druidSection
 local buffRows = {}
+local personalCDRows = {}
 local buffsHeaderFS
+local personalCDsHeaderFS
 local footerFS
 local outsideCatcher
-
-local TARGET_OPTIONS = {
-    { diff = 3, label = "Raid boss (+3)"    },
-    { diff = 2, label = "Heroic dungeon (+2)" },
-    { diff = 1, label = "Normal dungeon (+1)" },
-    { diff = 0, label = "Same level (+0)"     },
-}
-
-local function labelForDiff(diff)
-    for _, opt in ipairs(TARGET_OPTIONS) do
-        if opt.diff == diff then return opt.label end
-    end
-    return TARGET_OPTIONS[1].label
-end
-
-local function currentTargetDiff()
-    local perChar = UncrushableHelperPerCharDB
-    if perChar and perChar.targetBossLevelDiff ~= nil then
-        return perChar.targetBossLevelDiff
-    end
-    return 3
-end
 
 local function setFramePosition(f)
     local point = UncrushableHelperPerCharDB
@@ -263,41 +244,20 @@ local function buildMainFrame()
     closeBtn:SetPoint("RIGHT", header, "RIGHT", -4, 0)
     closeBtn:SetScript("OnClick", function() ns:HideMain() end)
 
-    -- Target level dropdown. Sits above the big number because the player
-    -- picks this context BEFORE reading the results; placing it below
-    -- would lead to "oh wait, those numbers were vs +2, not +3".
+    -- Static target label. The addon always calculates against a +3 raid
+    -- boss (the only TBC target where crushing blows exist, and therefore
+    -- the only scenario where the 102.4% cap is meaningful). A previous
+    -- iteration exposed this as a dropdown with +0/+1/+2/+3 options, but
+    -- the selector added complexity without changing the addon's core
+    -- purpose — everything else is just informational. Kept as a passive
+    -- label so users immediately see what context the numbers reflect.
     local targetLabel = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    targetLabel:SetPoint("TOPLEFT", header, "BOTTOMLEFT", PADDING, -2)
-    targetLabel:SetText("Target:")
-
-    targetDropdown = CreateFrame(
-        "Frame",
-        "UHTargetDropdown",
-        mainFrame,
-        "UIDropDownMenuTemplate"
-    )
-    targetDropdown:SetPoint("LEFT", targetLabel, "RIGHT", -8, -2)
-    UIDropDownMenu_SetWidth(targetDropdown, 160)
-    UIDropDownMenu_Initialize(targetDropdown, function(_, level)
-        local current = currentTargetDiff()
-        for _, opt in ipairs(TARGET_OPTIONS) do
-            local info = UIDropDownMenu_CreateInfo()
-            info.text    = opt.label
-            info.value   = opt.diff
-            info.checked = (opt.diff == current)
-            info.func    = function()
-                UncrushableHelperPerCharDB.targetBossLevelDiff = opt.diff
-                UIDropDownMenu_SetText(targetDropdown, opt.label)
-                if ns.Publish then ns:Publish() end
-            end
-            UIDropDownMenu_AddButton(info, level)
-        end
-    end)
-    UIDropDownMenu_SetText(targetDropdown, labelForDiff(currentTargetDiff()))
+    targetLabel:SetPoint("TOP", header, "BOTTOM", 0, -6)
+    targetLabel:SetText("Target: Raid boss (+3)")
 
     -- Big total
     totalFS = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-    totalFS:SetPoint("TOP", targetDropdown, "BOTTOM", 0, -2)
+    totalFS:SetPoint("TOP", targetLabel, "BOTTOM", 0, -2)
     totalFS:SetText("--")
 
     statusFS = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -364,6 +324,41 @@ local function buildMainFrame()
         end
     end
 
+    -- Personal cooldowns section — class-gated. Only built if the player's
+    -- class has at least one matching entry (Holy Shield for paladins,
+    -- Shield Block for warriors). Visibility of the section is further
+    -- gated on `mode == "block"` at render time: a paladin without a
+    -- shield gets the frame sized for the base layout and the section
+    -- stays hidden.
+    local classFile = ns.state and ns.state.classFile
+    local personalRowsData = ns.aura and ns.aura.ListPersonalCDsForUI
+        and ns.aura:ListPersonalCDsForUI(classFile)
+        or {}
+    if #personalRowsData > 0 then
+        personalCDsHeaderFS = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        local lastRaidKey = ns.trackedAurasOrder[#ns.trackedAurasOrder]
+        local lastRaidRow = buffRows[lastRaidKey]
+        personalCDsHeaderFS:SetPoint("TOPLEFT", lastRaidRow, "BOTTOMLEFT", 0, -10)
+        personalCDsHeaderFS:SetText("Personal cooldowns — check = active · click to plan")
+        setColor(personalCDsHeaderFS, COLOR_MUTED_LABEL)
+
+        for i, rowData in ipairs(personalRowsData) do
+            local key = rowData.key
+            local row = buildBuffRow(mainFrame, i)
+            row:SetPoint("TOPLEFT", personalCDsHeaderFS, "BOTTOMLEFT", 0, -(i - 1) * BUFF_ROW_H - 4)
+            row.check:SetScript("OnClick", function(self)
+                if ns.aura:IsActive(key) then
+                    self:SetChecked(true)
+                    return
+                end
+                local value = ns.aura:TogglePlanned(key)
+                self:SetChecked(value)
+                if ns.Publish then ns:Publish() end
+            end)
+            personalCDRows[key] = row
+        end
+    end
+
     footerFS = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     footerFS:SetPoint("BOTTOM", mainFrame, "BOTTOM", 0, 8)
     footerFS:SetText("/uh toggle  ·  /uh config  ·  /uh debug")
@@ -397,13 +392,6 @@ end
 local function applySnapshotToFrame(snap)
     if not snap then return end
 
-    -- Keep the dropdown label in sync with the snapshot's active diff
-    -- (covers cases where SV was edited externally or migrated).
-    if targetDropdown then
-        UIDropDownMenu_SetText(targetDropdown, labelForDiff(snap.bossLevelDiff or 3))
-    end
-
-    local diff  = snap.bossLevelDiff or 3
     local sim   = snap.simulated or { delta = { count = 0, miss = 0, dodge = 0, parry = 0, block = 0 }, total = snap.total or 0 }
     local delta = sim.delta or { count = 0, miss = 0, dodge = 0, parry = 0, block = 0 }
     local plannedCount = delta.count or 0
@@ -414,7 +402,7 @@ local function applySnapshotToFrame(snap)
     -- projected equals the live value, so this collapses naturally to the
     -- old behavior for characters without planned buffs toggled.
     totalFS:SetText(formatPct(sim.total))
-    if snap.mode == "block" and diff >= 3 then
+    if snap.mode == "block" then
         if sim.isUncrushable then
             setColor(totalFS,  COLOR_GREEN)
             setColor(statusFS, COLOR_GREEN)
@@ -428,10 +416,6 @@ local function applySnapshotToFrame(snap)
         setColor(totalFS,  COLOR_GOLD)
         setColor(statusFS, COLOR_GOLD)
         statusFS:SetText("N/A — Druid (no block on table)")
-    elseif snap.mode == "block" then
-        setColor(totalFS,  COLOR_GOLD)
-        setColor(statusFS, COLOR_GOLD)
-        statusFS:SetText(string.format("vs +%d target — no crushing blows", diff))
     else
         setColor(totalFS,  COLOR_GOLD)
         setColor(statusFS, COLOR_GOLD)
@@ -494,18 +478,37 @@ local function applySnapshotToFrame(snap)
     if titleHoverFrame then
         local titleDelta = (delta.miss or 0) + (delta.dodge or 0) + (delta.parry or 0) + (delta.block or 0)
         local liveVerdict
-        if hasPlanned and snap.mode == "block" and diff >= 3 then
+        if hasPlanned and snap.mode == "block" then
             liveVerdict = snap.isUncrushable
                 and "UNCRUSHABLE"
                 or string.format("CRUSHABLE — short by %s", formatPct(snap.shortBy or 0))
         end
         titleHoverFrame.tooltipData = {
-            title       = string.format("Avoidance vs +%d target", diff),
+            title       = "Avoidance vs raid boss (+3)",
             live        = snap.total or 0,
             delta       = titleDelta,
             projected   = sim.total or 0,
             liveVerdict = liveVerdict,
         }
+    end
+
+    -- Personal-cooldowns section visibility. The rows only matter for
+    -- shield-wearing tanks; hide them (and shrink the frame back to
+    -- FRAME_HEIGHT_BASE) when the player isn't in block mode so the
+    -- extra height doesn't show up as dead space.
+    if personalCDsHeaderFS then
+        local showPersonalCDs = snap.mode == "block"
+        if showPersonalCDs then
+            personalCDsHeaderFS:Show()
+            for _, row in pairs(personalCDRows) do row:Show() end
+        else
+            personalCDsHeaderFS:Hide()
+            for _, row in pairs(personalCDRows) do row:Hide() end
+        end
+        local targetHeight = showPersonalCDs and FRAME_HEIGHT_EXTENDED or FRAME_HEIGHT_BASE
+        if mainFrame:GetHeight() ~= targetHeight then
+            mainFrame:SetHeight(targetHeight)
+        end
     end
 
     -- Druid extras.
@@ -524,9 +527,8 @@ local function applySnapshotToFrame(snap)
     end
 end
 
-local function refreshBuffRows()
-    if not mainFrame then return end
-    for key, row in pairs(buffRows) do
+local function refreshBuffRowTable(rowTable)
+    for key, row in pairs(rowTable) do
         local isActive  = ns.aura:IsActive(key)
         local isPlanned = ns.aura:IsPlanned(key)
         local label = ns.trackedAurasLabels[key] or key
@@ -543,6 +545,12 @@ local function refreshBuffRows()
             row.text:SetText(label)
         end
     end
+end
+
+local function refreshBuffRows()
+    if not mainFrame then return end
+    refreshBuffRowTable(buffRows)
+    refreshBuffRowTable(personalCDRows)
 end
 
 function ns.ui:OnSnapshotChanged(snap)

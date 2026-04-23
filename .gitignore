@@ -5,6 +5,11 @@ Libs/
 .release/
 *.zip
 
+# Internal project notes — roadmap, design rationale, working memory.
+# Kept out of the public repo; ADRs under docs/adr/ cover the formal
+# decisions that anyone reading the codebase needs.
+CLAUDE.md
+
 # Editor/OS noise
 .claude/
 .vscode/

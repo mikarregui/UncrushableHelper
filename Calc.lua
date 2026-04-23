@@ -75,6 +75,15 @@ local function deltaForBuff(key, agiPerDodge, currentAgi)
         -- is exact when no other % stat buffs are active and a close
         -- approximation when they are (the error is the cross-term).
         return { dodge = (currentAgi * 0.1) / agiPerDodge }
+    elseif key == "holyShield" then
+        -- Paladin's Holy Shield: +30% Block chance while the buff is up.
+        -- The class gate sits in the UI (only paladins see the toggle),
+        -- so no class check is needed here.
+        return { block = 30.0 }
+    elseif key == "shieldBlock" then
+        -- Warrior's Shield Block: +75% Block chance for 5s. With
+        -- Improved Shield Block uptime approaches 100% in practice.
+        return { block = 75.0 }
     end
     return {}
 end
@@ -108,15 +117,14 @@ function ns.calc:SimulatePlannedDelta(classFile, plannedSet, activeSet)
     return total
 end
 
--- Compute a full defensive snapshot for the current player vs a target
--- whose level is `ctx.bossLevelDiff` above the player (defaults to +3 raid
--- boss when unspecified).
+-- Compute a full defensive snapshot for the current player vs a +3 raid
+-- boss (the only TBC target where crushing blows exist, which is the
+-- scenario the 102.4% uncrushable cap was designed for).
 --
 -- ctx fields consumed:
---   classFile      — "WARRIOR" | "PALADIN" | "DRUID" | … | nil (auto-detect)
---   activeSet      — { [buffKey] = true } currently applied buffs
---   plannedSet     — { [buffKey] = true } user-toggled planned buffs
---   bossLevelDiff  — 0..3, level difference between target and player
+--   classFile   — "WARRIOR" | "PALADIN" | "DRUID" | … | nil (auto-detect)
+--   activeSet   — { [buffKey] = true } currently applied buffs
+--   plannedSet  — { [buffKey] = true } user-toggled planned buffs
 --
 -- Returned table shape:
 --   {
@@ -140,20 +148,12 @@ function ns.calc:ComputeSnapshot(ctx)
     local classInfo = ns.classInfo[classFile or ""] or { label = classFile or "Unknown" }
     local mode      = determineMode(classFile)
 
-    -- Clamp level diff to 0..3 so the UI can't accidentally pass a
-    -- meaningless value (negative, or above where crushing blow mechanics
-    -- even exist in TBC content).
-    local bossLevelDiff = tonumber(ctx.bossLevelDiff) or ns.BOSS_LEVEL_DIFF
-    if bossLevelDiff < 0 then bossLevelDiff = 0 end
-    if bossLevelDiff > 3 then bossLevelDiff = 3 end
-
     local snap = {
-        classFile     = classFile,
-        classInfo     = classInfo,
-        mode          = mode,
-        bossLevelDiff = bossLevelDiff,
-        notes         = {},
-        components    = {},
+        classFile  = classFile,
+        classInfo  = classInfo,
+        mode       = mode,
+        notes      = {},
+        components = {},
     }
 
     -- Defense Skill: UnitDefense returns (base, modifier); their sum is what
@@ -170,15 +170,15 @@ function ns.calc:ComputeSnapshot(ctx)
         end
     end
 
-    -- Miss vs target:
-    --   base 5% − 0.2%/level × bossLevelDiff, plus +0.04% per Defense Skill above 350.
-    local levelPenalty = ns.PER_LEVEL_SHIFT * bossLevelDiff
+    -- Miss vs +3 boss:
+    --   base 5% − 0.2%/level × 3 = 4.4%, plus +0.04% per Defense Skill above 350.
+    local levelPenalty = ns.PER_LEVEL_SHIFT * ns.BOSS_LEVEL_DIFF
     local missBase     = ns.BASE_MISS - levelPenalty
     local missFromDef  = (defSkill - 350) * 0.04
     local miss         = clampNonNeg(missBase + missFromDef)
 
     -- Dodge / Parry / Block: GetDodgeChance etc. already bake in base +
-    -- stats + rating + talents vs a same-level target. The target's level
+    -- stats + rating + talents vs a same-level target. The +3 level
     -- penalty is not included, so we subtract it manually.
     local dodge = clampNonNeg((GetDodgeChance() or 0) - levelPenalty)
     local parry = clampNonNeg((GetParryChance() or 0) - levelPenalty)
@@ -204,11 +204,11 @@ function ns.calc:ComputeSnapshot(ctx)
         applicable = mode == "block",
     }
 
-    -- Crushing blows only exist against +3 targets in TBC, so the
-    -- UNCRUSHABLE verdict is only meaningful at bossLevelDiff == 3. For
-    -- lower diffs we still show the breakdown but no cap verdict — the
-    -- 102.4% target is a +3-specific artifact.
-    local verdictApplies = mode == "block" and bossLevelDiff >= 3
+    -- The UNCRUSHABLE verdict only applies to block-capable characters
+    -- (shield-wearers). Druids have no block slot on their attack table,
+    -- non-block classes can't close the 102.4% gap. Crushing blows are a
+    -- +3-boss mechanic so all of this is framed against that target.
+    local verdictApplies = mode == "block"
 
     if verdictApplies then
         snap.isUncrushable = snap.total >= ns.TARGET_CAP
@@ -230,7 +230,14 @@ function ns.calc:ComputeSnapshot(ctx)
     -- class still sees "with planned buffs you'd gain X%" if they care,
     -- but the UNCRUSHABLE verdict on the projection is only meaningful
     -- in block mode at +3.
+    --
+    -- If the character can't block (no shield or druid), zero the block
+    -- delta so a planned Flask / Shield Block / Holy Shield doesn't
+    -- inflate the projected total with a bonus that wouldn't apply.
     local delta = self:SimulatePlannedDelta(classFile, ctx.plannedSet, ctx.activeSet)
+    if mode ~= "block" then
+        delta.block = 0
+    end
     local simTotal = snap.total + delta.miss + delta.dodge + delta.parry + delta.block
     local simulated = {
         delta = delta,

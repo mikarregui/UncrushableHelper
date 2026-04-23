@@ -61,8 +61,9 @@ function ns.aura:TogglePlanned(key)
     return next
 end
 
--- Stable ordered view for UI rendering. Returns one row per tracked key
--- with `active`/`planned`/`label` already resolved.
+-- Stable ordered view for the raid-buffs UI section. Returns one row per
+-- tracked raid-buff key with `active`/`planned`/`label` resolved. Personal
+-- cooldowns are NOT in this list — see `ListPersonalCDsForUI` for those.
 function ns.aura:ListTrackedForUI()
     local rows = {}
     for _, key in ipairs(ns.trackedAurasOrder) do
@@ -72,6 +73,25 @@ function ns.aura:ListTrackedForUI()
             active  = self:IsActive(key),
             planned = self:IsPlanned(key),
         }
+    end
+    return rows
+end
+
+-- Personal cooldowns visible for the given class. Returns an empty list
+-- when the class has no matching entries (druid, any DPS, caster, …) so
+-- the caller can decide whether to render the whole section at all.
+function ns.aura:ListPersonalCDsForUI(classFile)
+    local rows = {}
+    if not classFile or not ns.personalCDsOrder then return rows end
+    for _, key in ipairs(ns.personalCDsOrder) do
+        if ns.personalCDsClass[key] == classFile then
+            rows[#rows + 1] = {
+                key     = key,
+                label   = ns.trackedAurasLabels[key] or key,
+                active  = self:IsActive(key),
+                planned = self:IsPlanned(key),
+            }
+        end
     end
     return rows
 end

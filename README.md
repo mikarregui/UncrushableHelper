@@ -60,8 +60,8 @@ Available on [CurseForge](https://legacy.curseforge.com/wow/addons/uncrushable-h
 
 ### Reading the window
 
-- **Target dropdown** at the top: the context all numbers are calculated against. Raid boss (+3) by default; switch to Heroic (+2), Normal (+1), or Same level (+0) to see how your avoidance looks in that content. Persists per-character.
-- **Big number**: your total avoidance against the selected target, including any planned buffs you've toggled. Green `UNCRUSHABLE` / red `CRUSHABLE — short by X.XX%` only at +3 (the only level where crushing blows exist); gold at lower diffs.
+- **Target label** at the top: static `Target: Raid boss (+3)`. The addon always calculates against a +3 raid boss — the only TBC scenario where crushing blows exist, and therefore the only one where the 102.4% cap is meaningful.
+- **Big number**: your total avoidance vs the +3 boss, including any planned buffs you've toggled. Green `UNCRUSHABLE` / red `CRUSHABLE — short by X.XX%` when a shield is equipped; gold for druids and shieldless characters (no verdict applies).
 - **Subtitle** (blue): when you have planned buffs toggled, shows `Including N planned buffs`. The live value is one hover away on the title tooltip.
 - **Breakdown**: Miss / Dodge / Parry / Block, each showing the projected value for the target. Rows affected by a planned buff render in blue. Hover any row for the `Live / Planned / Projected` split.
 - **Raid buffs**: one row per tracked buff. Green check + `(active)` = applied to you right now (contribution already in the live numbers). Blue check + `(planned)` = in your checklist (contribution simulated and added to the projection). Click to toggle planned.
@@ -91,7 +91,7 @@ block = clampNonNeg(GetBlockChance()  − 0.6)
 total = miss + dodge + parry + block
 ```
 
-The `− 0.6` is the per-level combat-table shift (0.2% per level × 3 levels). The level penalty is configurable via the target dropdown (Raid +3, Heroic +2, Normal +1, Same level +0); the verdict only applies at +3 because crushing blows don't exist below that.
+The `− 0.6` is the per-level combat-table shift (0.2% per level × 3 levels). The addon is locked to +3 because crushing blows — and therefore the 102.4% cap — only exist at that level difference. An earlier iteration exposed a target-level dropdown with +0/+1/+2/+3 options; it was removed to keep the frame focused on the scenario that matters.
 
 When planned buffs are toggled, the primary number shifts to reflect the projected post-buff state (Flask of Fortification's +10 Defense Rating is exact; agility-based buffs use a per-class `AGI_PER_DODGE_PCT` table; Blessing of Kings uses `UnitStat` × 0.1). The live value stays accessible via the title hover tooltip. See [docs/adr/0002](docs/adr/0002-planning-toggles-as-checklist.md) for the reasoning.
 

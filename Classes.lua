@@ -64,16 +64,28 @@ ns.classInfo = {
 -- aura survives rank changes (e.g. Blessing of Kings base vs the Greater
 -- Blessing variant cast from a Symbol of Kings reagent).
 --
--- Inclusion criterion is strict: every entry must have a measurable effect
--- on Miss / Dodge / Parry / Block % against a +3 boss. Buffs that improve
--- tank survival but don't touch the avoidance table (Fortitude, Devotion
--- Aura, Blessing of Sanctuary, armor-only consumables) are intentionally
--- out of scope — see docs/adr/0002.
+-- Each entry carries `category` ("raid_buff" | "personal_cd") and an
+-- optional `class` filter. Raid buffs come from external casters and apply
+-- regardless of class; personal cooldowns are self-casts that only make
+-- sense for the class that can use them (Holy Shield for paladins, Shield
+-- Block for warriors).
+--
+-- Inclusion criterion for raid buffs is strict: every entry must have a
+-- measurable effect on Miss / Dodge / Parry / Block % against a +3 boss.
+-- Buffs that improve tank survival but don't touch the avoidance table
+-- (Fortitude, Devotion Aura, Blessing of Sanctuary, armor-only consumables)
+-- are intentionally out of scope — see docs/adr/0002.
 ns.trackedAuras = {}
 
-local function register(key, label, ids)
+local function register(key, label, ids, opts)
+    opts = opts or {}
     for _, id in ipairs(ids) do
-        ns.trackedAuras[id] = { key = key, label = label }
+        ns.trackedAuras[id] = {
+            key      = key,
+            label    = label,
+            class    = opts.class,
+            category = opts.category or "raid_buff",
+        }
     end
 end
 
@@ -99,8 +111,21 @@ register("flaskFort", "Flask of Fortification", { 28518 })
 -- competitor to Flask of Fortification in the elixir/flask slot.
 register("elixirMajorAgility", "Elixir of Major Agility", { 28497 })
 
--- Display order for the UI buff section. Fixed so the list stays stable
--- even as the player gains/loses buffs.
+-- Personal cooldowns — self-cast block-chance boosts. Class-gated by the
+-- UI so the rows only appear for classes that can actually use them.
+--
+-- Holy Shield (paladin): +30% block chance for 10s, 4 charges, 10s CD —
+-- the de-facto way paladins close the block gap to uncrush during combat.
+-- TBC rank IDs 1-4 (rank 5 / 48952 is WotLK+).
+register("holyShield", "Holy Shield", { 20925, 20927, 20928, 27179 },
+    { class = "PALADIN", category = "personal_cd" })
+
+-- Shield Block (warrior): +75% block chance for 5s, 5s CD. With Improved
+-- Shield Block (Prot talent 4/4) uptime approaches 100% during tanking.
+register("shieldBlock", "Shield Block", { 2565 },
+    { class = "WARRIOR", category = "personal_cd" })
+
+-- Display order — raid buffs (all classes see these).
 ns.trackedAurasOrder = {
     "bok",
     "motw",
@@ -109,10 +134,26 @@ ns.trackedAurasOrder = {
     "scrollAgility",
 }
 
+-- Display order — personal cooldowns. The UI filters by class so each
+-- player only sees the ones they can cast.
+ns.personalCDsOrder = {
+    "holyShield",
+    "shieldBlock",
+}
+
 ns.trackedAurasLabels = {
     bok                = "Blessing of Kings",
     motw               = "Mark / Gift of the Wild",
     flaskFort          = "Flask of Fortification",
     elixirMajorAgility = "Elixir of Major Agility",
     scrollAgility      = "Scroll of Agility",
+    holyShield         = "Holy Shield",
+    shieldBlock        = "Shield Block",
+}
+
+-- Class requirement for personal cooldowns. Keys not present here are
+-- treated as "any class" (i.e. raid buffs).
+ns.personalCDsClass = {
+    holyShield  = "PALADIN",
+    shieldBlock = "WARRIOR",
 }

@@ -32,6 +32,8 @@ This is the second revision of ADR 0002. The first revision already reversed the
 
 Buffs that improve tank survival without touching the avoidance table — **Blessing of Sanctuary** (block value, not chance), **Power Word / Prayer of Fortitude** (stamina), **Devotion Aura** (armor), **Elixir of Major Defense** (armor despite the misleading name) — are **not** tracked. Listing them would teach players to chase buffs that don't move the cap.
 
+**Personal cooldowns extension (post-v0.1.0).** A sibling "Personal cooldowns" section exists beneath the raid buffs for shield-wearing tanks: **Holy Shield** (paladin, +30% block while active) and **Shield Block** (warrior, +75% block while active). They follow the same simulation path as raid buffs (a flat `delta.block` from `deltaForBuff`), but are rendered in a separate class-gated section because they're *self*-casts, not external buffs — the mental model of "did someone remember to give me this?" doesn't apply. Class gate in `ns.aura:ListPersonalCDsForUI`; the section is hidden entirely for classes without a match and for paladins/warriors without a shield equipped (mode != "block"). Same strict inclusion criterion as raid buffs: only abilities that touch the avoidance table qualify (Divine Shield and Shield Wall are out because they're invulnerability / damage reduction, not block chance).
+
 ## Rationale
 
 The earlier checklist-only decision was defensible in the abstract — simulating arbitrary buffs across every talent tree is a minefield — but the **curated buff list** we actually track sidesteps most of that risk:
