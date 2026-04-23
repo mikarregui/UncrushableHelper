@@ -29,6 +29,8 @@ In TBC, tanks avoid Crushing Blows by reaching **102.4% total avoidance** agains
   - **Informational** (no shield, non-druid): breakdown only, no verdict — the cap is unreachable without block.
 - **Component breakdown** — see exactly which stat is holding you back.
 - **Raid-buff checklist, curated** — Blessing of Kings, Mark / Gift of the Wild, Flask of Fortification, Elixir of Major Agility, Scroll of Agility. Only buffs that measurably affect the avoidance total are on the list (see [ADR 0002](docs/adr/0002-planning-toggles-as-checklist.md) for what was deliberately excluded). Active buffs are auto-detected (locked on, green); missing buffs can be ticked as "planned" (blue) for pre-pull checks.
+- **Personal cooldowns** (paladin & warrior with shield) — Holy Shield (+30% block) and Shield Block (+75% block) track in their own section with the same semantics as raid buffs. Auto-detected when active, togglable as *planned* so you can check "am I uncrushable if I keep Holy Shield rolling?" without cycling rotations. Hidden entirely for classes or specs that can't use these cooldowns.
+- **Validated formulas** — the defender-side combat-table math (0.04% per weapon-skill deficit applied equally to Miss / Dodge / Parry / Block) is verified against four independent sources: magey/tbc-warrior wiki plus three open-source TBC server implementations (TrinityTBC, CMangos-TBC, AzerothCore). See [ADR 0003](docs/adr/0003-combat-table-formula-for-player-defender.md) for the evidence trail.
 - **Floating window** — draggable, position persists per-character, ESC to close, optional click-outside-to-close.
 - **Minimap icon** — via LibDBIcon. Left-click toggles the window, right-click opens settings.
 
@@ -65,6 +67,7 @@ Available on [CurseForge](https://legacy.curseforge.com/wow/addons/uncrushable-h
 - **Subtitle** (blue): when you have planned buffs toggled, shows `Including N planned buffs`. The live value is one hover away on the title tooltip.
 - **Breakdown**: Miss / Dodge / Parry / Block, each showing the projected value for the target. Rows affected by a planned buff render in blue. Hover any row for the `Live / Planned / Projected` split.
 - **Raid buffs**: one row per tracked buff. Green check + `(active)` = applied to you right now (contribution already in the live numbers). Blue check + `(planned)` = in your checklist (contribution simulated and added to the projection). Click to toggle planned.
+- **Personal cooldowns** (only shown for paladin or warrior with a shield): separate sub-section below the raid buffs. Holy Shield (paladin) and Shield Block (warrior) appear here with the same active / planned semantics. When a paladin casts Holy Shield mid-fight the row flips from planned to active and the projected bump retracts — its contribution is already baked into the live Block chance the game reports.
 
 ### Druids (Feral / Bear)
 
