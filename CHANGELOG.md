@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-04-23
+
+### Changed
+
+- The Holy Shield planned-delta now adds an extra `+5.326% block chance` when **Libram of Repentance** (item 29388) is equipped in the ranged slot, matching the libram's in-game interaction with Holy Shield. Previously the simulator assumed a flat `+30%` regardless of the libram; paladins using Libram of Repentance saw the projected total under-estimate their real post-HS state by ~5%. When HS is actually active, no change — `GetBlockChance()` already includes both effects. Verified against the Unbreakable Paladin addon's hardcoded constant (`5.326455…`) and wowhead TBC item data.
+
 ## [0.1.2] - 2026-04-23
 
 ### Added
@@ -67,7 +73,8 @@ Initial public release.
 - SavedVariables with schema versioning: `UncrushableHelperDB` (global UI preferences) and `UncrushableHelperPerCharDB` (minimap icon, main-frame position, plannedBuffs, targetBossLevelDiff).
 - Repository scaffolding: README with badges, CONTRIBUTING, LICENSE (MIT), `.editorconfig`, `.gitignore`, `.pkgmeta`, GitHub issue / PR templates, BigWigs Packager release workflow, ADRs `0001-horizontal-layers-over-vsa` and `0002-planning-toggles-as-checklist`.
 
-[Unreleased]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mikarregui/UncrushableHelper/releases/tag/v0.1.0

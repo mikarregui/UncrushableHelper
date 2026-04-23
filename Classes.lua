@@ -39,6 +39,16 @@ ns.ARMOR_MITIGATION_K_L70 = 10557.5
 --   1 Defense Skill = 2.3654 Defense Rating → 1 Defense Rating = ~0.4228 skill
 ns.DEFENSE_RATING_PER_SKILL = 2.3654
 
+-- Libram of Repentance (paladin, ranged/libram slot). Grants +42 block
+-- rating while Holy Shield is active — equivalent to ~5.326% block chance
+-- at level 70 (42 / 7.8846 block-rating-per-1%-block). GetBlockChance
+-- already includes this while HS is up, so we only need to add it to the
+-- Holy Shield planned-delta when the libram is equipped and HS is being
+-- simulated rather than actually active. Verified against wowhead TBC and
+-- the Unbreakable Paladin addon's hardcoded 5.326455… constant.
+ns.LIBRAM_OF_REPENTANCE_ITEM_ID    = 29388
+ns.LIBRAM_OF_REPENTANCE_BLOCK_DELTA = 5.326
+
 -- Agility points required for 1% Dodge at level 70, per class. Cross-checked
 -- against magey/tbc-warrior wiki, wowhead TBC tank guides, and
 -- warcraft.wiki.gg on 2026-04-22. Druid in Bear form uses the base druid

@@ -79,7 +79,20 @@ local function deltaForBuff(key, agiPerDodge, currentAgi)
         -- Paladin's Holy Shield: +30% Block chance while the buff is up.
         -- The class gate sits in the UI (only paladins see the toggle),
         -- so no class check is needed here.
-        return { block = 30.0 }
+        --
+        -- Libram of Repentance (equipped in the ranged slot = 18) adds
+        -- another ~5.326% block chance specifically while Holy Shield is
+        -- active. When HS is actually on, GetBlockChance already includes
+        -- this — we only stack it onto the planned delta when simulating
+        -- HS being on.
+        local blockDelta = 30.0
+        if GetInventoryItemID then
+            local itemId = GetInventoryItemID("player", 18)
+            if itemId == ns.LIBRAM_OF_REPENTANCE_ITEM_ID then
+                blockDelta = blockDelta + ns.LIBRAM_OF_REPENTANCE_BLOCK_DELTA
+            end
+        end
+        return { block = blockDelta }
     elseif key == "shieldBlock" then
         -- Warrior's Shield Block: +75% Block chance for 5s. With
         -- Improved Shield Block uptime approaches 100% in practice.
