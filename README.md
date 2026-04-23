@@ -12,7 +12,7 @@
 [![Issues](https://img.shields.io/github/issues/mikarregui/UncrushableHelper.svg)](https://github.com/mikarregui/UncrushableHelper/issues)
 
 > Target client: **World of Warcraft — The Burning Crusade Classic Anniversary Edition** (2.5.5, Interface `20505`).
-> Available on **[GitHub Releases](https://github.com/mikarregui/UncrushableHelper/releases)**, **[CurseForge](https://legacy.curseforge.com/wow/addons/uncrushable-helper-tbc)**, and **[Wago](https://addons.wago.io/addons/uncrushable-helper)**.
+> Available on **[GitHub Releases](https://github.com/mikarregui/UncrushableHelper/releases)**, **[CurseForge](https://legacy.curseforge.com/wow/addons/uncrushable-helper-tbc)**, and **[Wago](https://addons.wago.io/addons/uncrushablehelper)**.
 
 ## Why
 
@@ -36,7 +36,7 @@ In TBC, tanks avoid Crushing Blows by reaching **102.4% total avoidance** agains
 
 ### Via addon manager (recommended)
 
-Available on [CurseForge](https://legacy.curseforge.com/wow/addons/uncrushable-helper-tbc) and [Wago](https://addons.wago.io/addons/uncrushable-helper). Install via the CurseForge app, the Wago app, or [WowUp](https://wowup.io) (multi-source).
+Available on [CurseForge](https://legacy.curseforge.com/wow/addons/uncrushable-helper-tbc) and [Wago](https://addons.wago.io/addons/uncrushablehelper). Install via the CurseForge app, the Wago app, or [WowUp](https://wowup.io) (multi-source).
 
 ### Manual
 
