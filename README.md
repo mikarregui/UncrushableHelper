@@ -130,6 +130,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow — branch naming, 
 
 If **Uncrushable Helper** saves you a wipe or two and you feel like saying thanks, you can tip me a coffee on Ko-fi. Completely optional — the addon stays free and fully functional regardless. Issues and PRs on GitHub are just as appreciated.
 
+When tipping, you can optionally leave your in-game name + server (or GitHub handle) in the message and I'll add you to a supporters list in the next release. Totally optional — anonymous tips are just as welcome.
+
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-tip%20me-FF5E5B?logo=kofi&logoColor=white)](https://ko-fi.com/mikarregui)
 
 ## License
