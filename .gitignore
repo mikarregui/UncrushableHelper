@@ -1,0 +1,19 @@
+# BigWigs Packager resolves and populates Libs/ at build time — never commit
+Libs/
+
+# Packager build output
+.release/
+*.zip
+
+# Editor/OS noise
+.claude/
+.vscode/
+.idea/
+*.bak
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Lua bytecode (shouldn't exist in this repo, but just in case)
+*.luac

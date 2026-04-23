@@ -1,0 +1,86 @@
+name: Bug report
+description: Report a bug or unexpected behavior
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report. Please fill in as much as you can — it helps a lot.
+
+  - type: input
+    id: version
+    attributes:
+      label: Addon version
+      description: The version you have installed (check the AddOns menu or the ZIP name).
+      placeholder: "v0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: client
+    attributes:
+      label: WoW client build
+      description: Run `/run print((GetBuildInfo()))` in-game to get it.
+      placeholder: "2.5.5.54999 (Interface 20505)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: class
+    attributes:
+      label: Character class
+      options:
+        - Warrior (Protection)
+        - Paladin (Protection)
+        - Druid (Feral / Bear)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: snapshot
+    attributes:
+      label: Output of `/uh debug`
+      description: Paste the full chat output of `/uh debug` at the time the bug occurred — it includes the snapshot values and detected buffs.
+      render: text
+
+  - type: textarea
+    id: addons
+    attributes:
+      label: Other installed addons
+      description: Especially anything that touches player stats (TankPoints, CharacterStatsTBC, AvoidanceStats TBC, custom WeakAuras, etc.).
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Be as specific as you can.
+      placeholder: |
+        1. Login on my Protection Paladin
+        2. Open /uh
+        3. Cast Holy Shield
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened
+    validations:
+      required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: Lua error (if any)
+      description: Paste the output from BugSack or on-screen error.
+      render: lua

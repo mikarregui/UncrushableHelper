@@ -1,0 +1,17 @@
+## Interface: 20505
+## Title: Uncrushable Helper
+## Notes: TBC tank avoidance cap tracker (Warrior/Paladin/Druid).
+## Author: mikarregui
+## Version: @project-version@
+## SavedVariables: UncrushableHelperDB
+## SavedVariablesPerCharacter: UncrushableHelperPerCharDB
+## X-License: MIT
+## X-Curse-Project-ID: 1522401
+
+embeds.xml
+Classes.lua
+Calc.lua
+Aura.lua
+Core.lua
+UI.lua
+Settings.lua
