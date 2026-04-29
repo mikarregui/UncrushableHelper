@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-04-29
+
+### Added
+
+- **Anti-crit cap tracking for all tank classes**, with Resilience integration. Druids, warriors with shield, and paladins with shield now see a single header line — `Anti-crit goal: 5.60% needed   ✓ OK` or `short by X.XX%` — between the avoidance breakdown and the raid-buffs section. Hovering the line surfaces a tooltip with the per-source breakdown: defense skill above 350, Survival of the Fittest (druid only), Resilience rating, and the running totals. Previously only druids saw an anti-crit goal at all (as a single `Defense Skill: X / 415` line); warriors and paladins had no anti-crit display whatsoever.
+
+  Particularly relevant for tanks running PvP gear in early raid phases — Phase 1/2 BiS lists include some PvP pieces (belts, trinkets) with Resilience, and previously the addon ignored that contribution entirely. A warrior at 480 defense skill with 30 Resilience rating is crit-immune (`5.2% + 0.76% = 5.96%`), but the addon would have shown them as below the conventional 490 defense target with no acknowledgement of the Resilience offset. Now the goal line accounts for it; the tooltip shows exactly how the three sources stack. Resilience is read via `GetCombatRatingBonus(CR_CRIT_TAKEN_MELEE)`; defense skill via `UnitDefense`; Survival of the Fittest is hardcoded to `-3%` for any druid (the assumption being that any druid opening this addon has it talented).
+
+  In TBC 2.5.5, Resilience reduces crit chance taken from any source — including raid bosses. This was changed to PvP-only in WotLK 3.0, but TBC Anniversary keeps the original behavior. New [ADR 0004](docs/adr/0004-anti-crit-cap-sources.md) documents the math, the three additive sources, the TBC-vs-WotLK distinction, and an explicit verification that no other TBC item, gem, enchant, libram, idol, set bonus, racial, or consumable contributes to crit reduction outside the two API paths (so no Libram-of-Repentance-style special casing is needed for anti-crit, only for SotF).
+
+### Removed
+
+- **Druid-specific armor + physical-mitigation line.** The window previously showed `Armor: X (Y.Y% physical mitigation)` for druids in the section that's now occupied by anti-crit. Removed: the character pane already shows armor and the mitigation % is one stat-priority page away — it doesn't earn its slot in an addon focused on the avoidance and anti-crit caps. `UnitArmor` is no longer called; `ns.ARMOR_MITIGATION_K_L70` is gone. The `Defense Skill: X / 415` line for druids is also gone, replaced by the unified anti-crit header described above.
+- **Defense / Armor / Anti-crit lines from the minimap-icon LDB tooltip.** That tooltip is now a thin "is this character uncrushable?" summary — for block-mode tanks it shows the avoidance total + UNCRUSHABLE / CRUSHABLE verdict and nothing else. Anything more lives in the main window where it belongs.
+- `snap.druidGoals`, `snap.armor`, `ns.ARMOR_MITIGATION_K_L70`, and `ns.ANTI_CRIT_DEFENSE_TARGET_DRUID` are removed from the snapshot / static data. External code that read those should migrate to `snap.antiCrit`, which carries the same anti-crit signal in a richer per-source shape.
+
 ## [0.1.3] - 2026-04-23
 
 ### Changed
@@ -73,7 +89,8 @@ Initial public release.
 - SavedVariables with schema versioning: `UncrushableHelperDB` (global UI preferences) and `UncrushableHelperPerCharDB` (minimap icon, main-frame position, plannedBuffs, targetBossLevelDiff).
 - Repository scaffolding: README with badges, CONTRIBUTING, LICENSE (MIT), `.editorconfig`, `.gitignore`, `.pkgmeta`, GitHub issue / PR templates, BigWigs Packager release workflow, ADRs `0001-horizontal-layers-over-vsa` and `0002-planning-toggles-as-checklist`.
 
-[Unreleased]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/mikarregui/UncrushableHelper/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.3...v1.0.0
 [0.1.3]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.0...v0.1.1

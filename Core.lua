@@ -148,13 +148,23 @@ local function printSnapshot()
         else
             print("  |cffff5555CRUSHABLE|r — short by " .. formatPct(snap.shortBy or 0))
         end
-    elseif snap.druidGoals then
-        local defOk = snap.druidGoals.defenseOk and "|cff33ff55OK|r" or "|cffffcc55below goal|r"
-        print(("  Druid goals: defense skill %d / %d  %s"):format(
-            snap.defenseSkill, snap.druidGoals.defenseTarget, defOk))
-        print("  Armor: " .. tostring(snap.druidGoals.armor or 0))
+    elseif snap.mode == "druid-special" then
+        print("  |cffbbbb99Druid mode|r — anti-crit goal below replaces the cap verdict.")
     else
         print("  |cffbbbb99Informational only|r — no shield, cap verdict not applicable.")
+    end
+
+    if snap.antiCrit then
+        local ac = snap.antiCrit
+        local statusTag = ac.ok and "|cff33ff55OK|r" or "|cffff5555short by " .. formatPct(ac.shortBy) .. "|r"
+        print(("  Anti-crit goal: %s needed   %s"):format(formatPct(ac.target), statusTag))
+        print(("    Defense (%d above 350): -%s"):format(
+            math.max(0, (snap.defenseSkill or 0) - 350), formatPct(ac.fromDefense)))
+        if ac.fromTalents > 0 then
+            print(("    Survival of the Fittest: -%s"):format(formatPct(ac.fromTalents)))
+        end
+        print(("    Resilience (%d rating): -%s"):format(ac.resilienceRating or 0, formatPct(ac.fromResilience)))
+        print(("    Total reduction: -%s"):format(formatPct(ac.total)))
     end
 
     if ns.aura and ns.aura.ListTrackedForUI then

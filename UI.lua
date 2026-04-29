@@ -3,8 +3,8 @@ local addonName, ns = ...
 ns.ui = {}
 
 local FRAME_WIDTH           = 300
-local FRAME_HEIGHT_BASE     = 494   -- no personal-cooldowns section visible
-local FRAME_HEIGHT_EXTENDED = 540   -- with header + 1 personal-cooldown row
+local FRAME_HEIGHT_BASE     = 494   -- no extras (no anti-crit, no personal CDs)
+local FRAME_HEIGHT_EXTENDED = 560   -- worst case: anti-crit header (~18) + personal CDs (~46)
 local FRAME_HEIGHT          = FRAME_HEIGHT_BASE  -- initial; adjusted at render time
 local PADDING      = 14
 local ROW_HEIGHT   = 20
@@ -50,17 +50,10 @@ if ldb then
         OnTooltipShow = function(tt)
             tt:AddLine("Uncrushable Helper")
             local snap = ns.state.snapshot
-            if snap then
-                if snap.mode == "block" then
-                    local status = snap.isUncrushable and "|cff33ff55UNCRUSHABLE|r" or "|cffff5555CRUSHABLE|r"
-                    tt:AddDoubleLine("Total", formatPct(snap.total), 1, 1, 1, 1, 1, 1)
-                    tt:AddLine(status)
-                elseif snap.druidGoals then
-                    tt:AddDoubleLine("Defense", tostring(snap.defenseSkill), 1, 1, 1, 1, 1, 1)
-                    tt:AddDoubleLine("Armor",
-                        string.format("%d (%.1f%% mit.)", snap.druidGoals.armor, snap.druidGoals.mitigation or 0),
-                        1, 1, 1, 1, 1, 1)
-                end
+            if snap and snap.mode == "block" then
+                local status = snap.isUncrushable and "|cff33ff55UNCRUSHABLE|r" or "|cffff5555CRUSHABLE|r"
+                tt:AddDoubleLine("Total", formatPct(snap.total), 1, 1, 1, 1, 1, 1)
+                tt:AddLine(status)
             end
             tt:AddLine("Left-click: open/close", 1, 1, 1)
             tt:AddLine("Right-click: settings",  1, 1, 1)
@@ -87,7 +80,7 @@ local header, titleFS, closeBtn
 local totalFS, statusFS, subtitleFS
 local titleHoverFrame
 local breakdown = {}
-local druidSection
+local antiCritSection
 local buffRows = {}
 local personalCDRows = {}
 local buffsHeaderFS
@@ -155,6 +148,34 @@ end
 
 local function hideTooltip()
     GameTooltip:Hide()
+end
+
+local function showAntiCritTooltip(self)
+    local d = self.tooltipData
+    if not d then return end
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText("Anti-crit reduction sources", 1, 0.82, 0)
+    GameTooltip:AddDoubleLine(
+        string.format("Defense (%d above 350)", d.defenseAbove350),
+        string.format("-%.2f%%", d.fromDefense),
+        1, 1, 1, 1, 1, 1)
+    if d.fromTalents and d.fromTalents > 0 then
+        GameTooltip:AddDoubleLine("Survival of the Fittest",
+            string.format("-%.2f%%", d.fromTalents),
+            1, 1, 1, 1, 1, 1)
+    end
+    GameTooltip:AddDoubleLine(
+        string.format("Resilience (%d rating)", d.resilienceRating),
+        string.format("-%.2f%%", d.fromResilience),
+        1, 1, 1, 1, 1, 1)
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddDoubleLine("Total reduction:",
+        string.format("-%.2f%%", d.total),
+        1, 1, 1, 0.20, 0.85, 0.30)
+    GameTooltip:AddDoubleLine("Boss crit chance (cap):",
+        string.format("%.2f%%", d.target),
+        1, 1, 1, 1, 1, 1)
+    GameTooltip:Show()
 end
 
 local function makeRow(parent, yOffset, label)
@@ -283,34 +304,31 @@ local function buildMainFrame()
     breakdown.parry = makeRow(mainFrame, yStart - 2*(ROW_HEIGHT+2), "Parry")
     breakdown.block = makeRow(mainFrame, yStart - 3*(ROW_HEIGHT+2), "Block")
 
-    -- Druid goals section. Anchored relative to the last breakdown row so
-    -- its vertical position flows naturally regardless of frame resize.
-    -- Hidden for non-druids (see applySnapshotToFrame); the raid-buffs
-    -- header below is anchored conditionally so it doesn't overlap the
-    -- druidSection when the druid section is visible.
-    druidSection = CreateFrame("Frame", nil, mainFrame)
-    druidSection:SetSize(FRAME_WIDTH - 2 * PADDING, 50)
-    druidSection:SetPoint("TOPLEFT", breakdown.block.frame, "BOTTOMLEFT", 0, -6)
+    -- Anti-crit cap section. Shown for any tank-shaped character (druid or
+    -- block-mode warrior/paladin). Renders a single header line with the
+    -- goal status; the per-source breakdown (defense / SotF / resilience)
+    -- lives in a hover tooltip to keep the main window compact. Hidden in
+    -- no-verdict mode.
+    antiCritSection = CreateFrame("Frame", nil, mainFrame)
+    antiCritSection:SetSize(FRAME_WIDTH - 2 * PADDING, 0)
+    antiCritSection:SetPoint("TOPLEFT", breakdown.block.frame, "BOTTOMLEFT", 0, -6)
+    antiCritSection:EnableMouse(true)
+    antiCritSection:SetScript("OnEnter", showAntiCritTooltip)
+    antiCritSection:SetScript("OnLeave", hideTooltip)
 
-    druidSection.defenseFS = druidSection:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    druidSection.defenseFS:SetPoint("TOPLEFT", druidSection, "TOPLEFT", 0, 0)
-    druidSection.defenseFS:SetJustifyH("LEFT")
+    antiCritSection.headerFS = antiCritSection:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    antiCritSection.headerFS:SetPoint("TOPLEFT", antiCritSection, "TOPLEFT", 0, 0)
+    antiCritSection.headerFS:SetJustifyH("LEFT")
 
-    druidSection.armorFS = druidSection:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    druidSection.armorFS:SetPoint("TOPLEFT", druidSection.defenseFS, "BOTTOMLEFT", 0, -4)
-    druidSection.armorFS:SetJustifyH("LEFT")
+    antiCritSection:Hide()
 
-    druidSection:Hide()
-
-    -- Buffs section header. Anchored below druidSection for druids (so
-    -- the two don't overlap), below the block row otherwise. Class is
-    -- fixed for the session so branching once at build time is fine.
+    -- Buffs section header. Anchored below antiCritSection so its vertical
+    -- position flows with whatever the section's current height is — we
+    -- don't need to branch on class or mode here; the section sets height
+    -- to 0 when there's no anti-crit content, collapsing this back to a
+    -- minimal gap below the breakdown rows.
     buffsHeaderFS = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    if ns.state and ns.state.classFile == "DRUID" then
-        buffsHeaderFS:SetPoint("TOPLEFT", druidSection, "BOTTOMLEFT", 0, -6)
-    else
-        buffsHeaderFS:SetPoint("TOPLEFT", breakdown.block.frame, "BOTTOMLEFT", 0, -16)
-    end
+    buffsHeaderFS:SetPoint("TOPLEFT", antiCritSection, "BOTTOMLEFT", 0, -10)
     buffsHeaderFS:SetText("Raid buffs — check = active · click to plan")
     setColor(buffsHeaderFS, COLOR_MUTED_LABEL)
 
@@ -517,31 +535,42 @@ local function applySnapshotToFrame(snap)
         end
     end
 
-    -- Druid extras. Shown for druid-special mode (any druid).
-    if snap.druidGoals then
-        druidSection:Show()
-        local defColor = snap.druidGoals.defenseOk and COLOR_GREEN or COLOR_RED
-        druidSection.defenseFS:SetText(string.format(
-            "Defense Skill: %d / %d",
-            snap.defenseSkill or 0,
-            snap.druidGoals.defenseTarget))
-        setColor(druidSection.defenseFS, defColor)
-        druidSection.armorFS:SetText(string.format(
-            "Armor: %d  (%.1f%% physical mitigation)",
-            snap.druidGoals.armor or 0,
-            snap.druidGoals.mitigation or 0))
-        setColor(druidSection.armorFS, COLOR_MUTED_LABEL)
+    -- Anti-crit section. One header line; the per-source breakdown lives
+    -- in the GameTooltip on hover (set up via tooltipData).
+    if snap.antiCrit then
+        local ac = snap.antiCrit
+        antiCritSection:Show()
+
+        local statusTag = ac.ok
+            and "  |cff33ff55OK|r"
+            or  string.format("  |cffff5555short by %s|r", formatPct(ac.shortBy))
+        antiCritSection.headerFS:SetText(string.format(
+            "Anti-crit goal: %s needed%s",
+            formatPct(ac.target), statusTag))
+        setColor(antiCritSection.headerFS, ac.ok and COLOR_GREEN or COLOR_RED)
+
+        antiCritSection.tooltipData = {
+            target           = ac.target,
+            defenseAbove350  = math.max(0, (snap.defenseSkill or 0) - 350),
+            fromDefense      = ac.fromDefense,
+            fromTalents      = ac.fromTalents,
+            resilienceRating = ac.resilienceRating or 0,
+            fromResilience   = ac.fromResilience,
+            total            = ac.total,
+        }
+        antiCritSection:SetHeight(18)
     else
-        druidSection:Hide()
+        antiCritSection:Hide()
+        antiCritSection:SetHeight(0)
+        antiCritSection.tooltipData = nil
     end
 
     -- Frame height. Extended when EITHER personal cooldowns are visible
-    -- OR the druid section is visible — both occupy a similar ~50 px
-    -- slot between the breakdown rows and the raid-buffs header. They
-    -- are class-exclusive in practice (druids don't get personal CDs
-    -- and block-classes don't get druidSection), so there's no case
-    -- where both are shown at once.
-    local wantsExtended = showPersonalCDs or snap.druidGoals ~= nil
+    -- OR the anti-crit section is visible. Both modes (block and
+    -- druid-special) populate anti-crit, so this also covers druids;
+    -- block-mode tanks get both sections stacked, so the extended height
+    -- needs to fit anti-crit (~90px) + personal CDs (~46px).
+    local wantsExtended = showPersonalCDs or snap.antiCrit ~= nil
     local targetHeight = wantsExtended and FRAME_HEIGHT_EXTENDED or FRAME_HEIGHT_BASE
     if mainFrame:GetHeight() ~= targetHeight then
         mainFrame:SetHeight(targetHeight)

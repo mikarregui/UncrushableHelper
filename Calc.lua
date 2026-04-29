@@ -48,6 +48,46 @@ local function determineMode(classFile)
     return "no-verdict"
 end
 
+-- Compute the anti-crit cap state vs a +3 raid boss. The boss crits at 5.6%
+-- (5% base + 0.6% from the 15 weapon-skill diff) and anti-crit means
+-- offsetting that to 0% via three additive sources:
+--   1. Defense skill > 350      → 0.04% per point
+--   2. Resilience rating         → ~1% per 39.42 rating; read directly via
+--                                   GetCombatRatingBonus, which already
+--                                   converts rating to %
+--   3. Class talent: druid SotF  → 3% flat (passive, assumed talented for
+--                                   any druid that opens this addon)
+-- Returns nil for non-tank shapes (no shield + non-druid). See docs/adr/0004
+-- for the derivation and TBC-vs-WotLK note on Resilience applying vs PvE.
+local function computeAntiCrit(classFile, mode, defSkill)
+    if mode ~= "block" and mode ~= "druid-special" then return nil end
+
+    local fromDefense = math.max(0, (defSkill - 350) * 0.04)
+    local fromTalents = (classFile == "DRUID") and ns.SOTF_CRIT_REDUCTION or 0
+    local fromResil   = 0
+    local resilRating = 0
+    if ns.CR_CRIT_TAKEN_MELEE then
+        if GetCombatRatingBonus then
+            fromResil = GetCombatRatingBonus(ns.CR_CRIT_TAKEN_MELEE) or 0
+        end
+        if GetCombatRating then
+            resilRating = GetCombatRating(ns.CR_CRIT_TAKEN_MELEE) or 0
+        end
+    end
+
+    local total = fromDefense + fromTalents + fromResil
+    return {
+        target           = ns.BOSS_CRIT_VS_PLUS3,
+        fromDefense      = fromDefense,
+        fromTalents      = fromTalents,
+        fromResilience   = fromResil,
+        resilienceRating = resilRating,
+        total            = total,
+        ok               = total >= ns.BOSS_CRIT_VS_PLUS3,
+        shortBy          = math.max(0, ns.BOSS_CRIT_VS_PLUS3 - total),
+    }
+end
+
 -- Estimate the avoidance delta a single buff adds, per class. Only models
 -- effects that directly touch a component of the avoidance table — crit
 -- rating, haste, armor, stamina etc. from the same items are ignored.
@@ -144,11 +184,13 @@ end
 --     classFile, classInfo,
 --     mode              = "block" | "druid-special" | "no-verdict",
 --     inBearForm        = bool,                     -- druid only
---     defenseSkill, armor,
+--     defenseSkill,
 --     miss, dodge, parry, block, total,
 --     isUncrushable     = bool | nil,               -- nil when not applicable
 --     shortBy           = number | nil,             -- how far below 102.4 we are
 --     components        = { miss = {...}, dodge = {...}, parry = {...}, block = {...} },
+--     antiCrit          = { target, fromDefense, fromTalents, fromResilience,
+--                            resilienceRating, total, ok, shortBy } | nil,
 --     simulated         = {                          -- with planned buffs applied
 --         delta = { miss, dodge, parry, block, count },
 --         total, isUncrushable, shortBy,
@@ -174,7 +216,6 @@ function ns.calc:ComputeSnapshot(ctx)
     local defBase, defMod = UnitDefense("player")
     local defSkill = (defBase or 0) + (defMod or 0)
     snap.defenseSkill = defSkill
-    snap.armor        = UnitArmor and select(2, UnitArmor("player")) or 0
 
     if classFile == "DRUID" then
         snap.inBearForm = isBearForm()
@@ -225,19 +266,18 @@ function ns.calc:ComputeSnapshot(ctx)
         if not snap.isUncrushable then
             snap.shortBy = ns.TARGET_CAP - snap.total
         end
-    elseif mode == "druid-special" then
-        snap.isUncrushable = nil
-        local armor = snap.armor or 0
-        local mitigation = armor / (armor + ns.ARMOR_MITIGATION_K_L70) * 100
-        snap.druidGoals = {
-            defenseTarget = ns.ANTI_CRIT_DEFENSE_TARGET_DRUID,
-            defenseOk     = defSkill >= ns.ANTI_CRIT_DEFENSE_TARGET_DRUID,
-            armor         = armor,
-            mitigation    = mitigation,
-        }
     else
+        -- Druid-special and no-verdict: no avoidance verdict applies. The
+        -- anti-crit cap (computed below) is the actionable goal for druids;
+        -- no-verdict characters get only the breakdown.
         snap.isUncrushable = nil
     end
+
+    -- Anti-crit cap breakdown (defense skill + resilience + talents vs the
+    -- 5.6% boss crit chance). Computed for all tank-shaped characters so
+    -- warriors/paladins running PvP gear with Resilience can see whether
+    -- they're crit-immune even below 490 defense skill. nil for non-tanks.
+    snap.antiCrit = computeAntiCrit(classFile, mode, defSkill)
 
     -- Planned-buff projection. Runs regardless of mode so a non-block
     -- class still sees "with planned buffs you'd gain X%" if they care,
