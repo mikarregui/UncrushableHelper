@@ -16,23 +16,32 @@ ns.TARGET_CAP = 102.4
 -- implicitly, so we do NOT subtract per-level shift here.
 ns.BASE_MISS  = 5.0
 
--- Defense Skill a druid needs vs a +3 boss to be crit-immune given the
--- -3% crit reduction from the Survival of the Fittest talent:
---   boss crit vs lvl 70 at 350 defense = 5% base + 15 skill × 0.04% = 5.6%
---   Survival of the Fittest crit-taken reduction                    = 3.0%
---   remaining crit to offset via defense skill                      = 2.6%
---   defense skill above 350 needed (each point removes 0.04% crit)  = 2.6 / 0.04 = 65
---   target defense skill = 350 + 65                                 = 415
--- For reference: warriors and paladins without SotF need the full 140
--- skill over 350 = 490, which is the cap those classes chase instead.
-ns.ANTI_CRIT_DEFENSE_TARGET_DRUID = 415
+-- Boss crit chance vs a +3 raid boss when the player is at the 350 defense
+-- skill floor: 5% base + (15 weapon-skill diff × 0.04%) = 5.6%. The
+-- anti-crit cap is reaching this number in total reduction via the three
+-- additive sources tracked by ns.calc.computeAntiCrit:
+--   1. Defense skill above 350    → 0.04% per point
+--   2. Resilience rating (lvl 70) → ~1% per 39.4 rating
+--   3. Class talents              → only Survival of the Fittest (druid) -3%
+-- See docs/adr/0004 for the math and the TBC-vs-WotLK note on Resilience
+-- applying vs PvE in 2.5.5.
+ns.BOSS_CRIT_VS_PLUS3 = 5.6
 
--- Armor-to-physical-mitigation denominator at level 70. Standard TBC
--- formula: mitigation = armor / (armor + K), with K = 467.5 × level − 22167.5
--- evaluating to 10557.5 at level 70. Used to surface mitigation % next
--- to the raw armor number for druids (bears tank through armor, not
--- block, so the % is the stat they actually care about).
-ns.ARMOR_MITIGATION_K_L70 = 10557.5
+-- Druid Survival of the Fittest: -3% melee crit chance taken. Passive,
+-- always-on for any druid that has it talented. Assumed talented for any
+-- druid that opens this addon — feral tanks without SotF maxed aren't
+-- tanking raids, so the assumption holds in practice. Not gated via
+-- GetTalentInfo to avoid unnecessary API chatter.
+ns.SOTF_CRIT_REDUCTION = 3.0
+
+-- WoW combat-rating index for "crit chance taken from melee" — what the
+-- Resilience stat reduces. GetCombatRatingBonus(CR_CRIT_TAKEN_MELEE) returns
+-- the percentage directly (rating-to-% conversion already applied), so we
+-- never have to handle the 39.4231 rating-per-1% constant ourselves. We use
+-- the global constant exposed by the client (via _G) rather than a hardcoded
+-- number because different TBC client versions have used 14, 15, and 16 for
+-- this index over time; the global always points to the right one.
+ns.CR_CRIT_TAKEN_MELEE = _G.CR_CRIT_TAKEN_MELEE
 
 -- Defense Rating → Defense Skill conversion at level 70. Used to simulate
 -- Flask of Fortification (which adds +10 Defense Rating, not raw skill).
