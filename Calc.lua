@@ -66,12 +66,12 @@ local function computeAntiCrit(classFile, mode, defSkill)
     local fromTalents = (classFile == "DRUID") and ns.SOTF_CRIT_REDUCTION or 0
     local fromResil   = 0
     local resilRating = 0
-    if ns.CR_CRIT_TAKEN_MELEE then
+    if ns.CR_RESILIENCE then
         if GetCombatRatingBonus then
-            fromResil = GetCombatRatingBonus(ns.CR_CRIT_TAKEN_MELEE) or 0
+            fromResil = GetCombatRatingBonus(ns.CR_RESILIENCE) or 0
         end
         if GetCombatRating then
-            resilRating = GetCombatRating(ns.CR_CRIT_TAKEN_MELEE) or 0
+            resilRating = GetCombatRating(ns.CR_RESILIENCE) or 0
         end
     end
 

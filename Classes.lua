@@ -34,14 +34,23 @@ ns.BOSS_CRIT_VS_PLUS3 = 5.6
 -- GetTalentInfo to avoid unnecessary API chatter.
 ns.SOTF_CRIT_REDUCTION = 3.0
 
--- WoW combat-rating index for "crit chance taken from melee" — what the
--- Resilience stat reduces. GetCombatRatingBonus(CR_CRIT_TAKEN_MELEE) returns
--- the percentage directly (rating-to-% conversion already applied), so we
--- never have to handle the 39.4231 rating-per-1% constant ourselves. We use
--- the global constant exposed by the client (via _G) rather than a hardcoded
--- number because different TBC client versions have used 14, 15, and 16 for
--- this index over time; the global always points to the right one.
-ns.CR_CRIT_TAKEN_MELEE = _G.CR_CRIT_TAKEN_MELEE
+-- WoW combat-rating index for Resilience (the stat that reduces crit
+-- chance taken from any source in TBC). The named global has shifted
+-- across clients:
+--   - TBC 2.4 retail: CR_CRIT_TAKEN_MELEE (with _RANGED/_SPELL siblings
+--     that all returned the same rating).
+--   - TBC Anniversary 2.5.5: CR_RESILIENCE_PLAYER_DAMAGE_TAKEN — the
+--     three sub-ratings collapsed into one named constant (index 16 in
+--     this client; index 15 still works as an alias for backward compat,
+--     but the old name `CR_CRIT_TAKEN_MELEE` is not exposed).
+-- We chain the names so the addon stays portable across patches without
+-- hardcoding a numeric index — those have drifted historically (14/15/16)
+-- and even within a single client multiple indices can alias the same
+-- rating. The global by name is the stable contract.
+-- GetCombatRatingBonus(idx) returns the percentage already converted from
+-- rating, so callers don't need to apply the ~39.4-rating-per-1% factor.
+ns.CR_RESILIENCE = _G.CR_RESILIENCE_PLAYER_DAMAGE_TAKEN
+                or _G.CR_CRIT_TAKEN_MELEE
 
 -- Defense Rating → Defense Skill conversion at level 70. Used to simulate
 -- Flask of Fortification (which adds +10 Defense Rating, not raw skill).

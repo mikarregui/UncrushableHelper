@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **Anti-crit Resilience reading was always 0 in TBC Anniversary 2.5.5**, even when the character had Resilience-bearing gear, gems, or enchants equipped. Tanks running PvP belts / trinkets (or chests with Enchant Chest — Major Resilience, +15 res) saw `Resilience (0 rating) −0.00%` in the anti-crit breakdown despite the character pane correctly displaying the rating. Effect: the crit-immunity goal was under-credited by the entire Resilience contribution; defense-skill numbers stayed correct.
+
+  Root cause: the addon read the rating via `_G.CR_CRIT_TAKEN_MELEE`, the global constant name from the original TBC 2.4 retail client. In TBC Anniversary 2.5.5 Blizzard collapsed the three TBC sub-ratings (`CR_CRIT_TAKEN_MELEE` / `_RANGED` / `_SPELL`) into a single `CR_RESILIENCE_PLAYER_DAMAGE_TAKEN` constant (index 16) and removed the old names from the global table. The addon's `if ns.CR_CRIT_TAKEN_MELEE then …` guard skipped silently, defaulting `fromResil` to 0 with no error or warning.
+
+  Fix: read the new name first and chain the old name as fallback — `_G.CR_RESILIENCE_PLAYER_DAMAGE_TAKEN or _G.CR_CRIT_TAKEN_MELEE`. The addon now picks up Resilience from every source (gear, gems, enchants, trinkets, set bonuses) — all of which were already aggregated by the WoW API and going unread because the index was never resolved. Verified in-game with a 24-Resilience necklace and `Enchant Chest — Major Resilience` (+15 res): the addon previously showed `0 rating −0.00%`, now matches the character pane's "Temple" / "Resilience" stat exactly.
+
+  [ADR 0004 §"Postscript: 2026-05-07"](docs/adr/0004-anti-crit-cap-sources.md) expanded with the lesson learned: reading globals by name is necessary but not sufficient — the names themselves get renamed across clients, so a chain of known historical names is the actual stable contract, not any single one.
+
 ## [1.0.0] - 2026-04-29
 
 ### Added
