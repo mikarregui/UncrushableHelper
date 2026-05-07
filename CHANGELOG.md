@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-05-07
+
 ### Fixed
 
 - **Anti-crit Resilience reading was always 0 in TBC Anniversary 2.5.5**, even when the character had Resilience-bearing gear, gems, or enchants equipped. Tanks running PvP belts / trinkets (or chests with Enchant Chest — Major Resilience, +15 res) saw `Resilience (0 rating) −0.00%` in the anti-crit breakdown despite the character pane correctly displaying the rating. Effect: the crit-immunity goal was under-credited by the entire Resilience contribution; defense-skill numbers stayed correct.
@@ -99,7 +101,8 @@ Initial public release.
 - SavedVariables with schema versioning: `UncrushableHelperDB` (global UI preferences) and `UncrushableHelperPerCharDB` (minimap icon, main-frame position, plannedBuffs, targetBossLevelDiff).
 - Repository scaffolding: README with badges, CONTRIBUTING, LICENSE (MIT), `.editorconfig`, `.gitignore`, `.pkgmeta`, GitHub issue / PR templates, BigWigs Packager release workflow, ADRs `0001-horizontal-layers-over-vsa` and `0002-planning-toggles-as-checklist`.
 
-[Unreleased]: https://github.com/mikarregui/UncrushableHelper/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/mikarregui/UncrushableHelper/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/mikarregui/UncrushableHelper/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.3...v1.0.0
 [0.1.3]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/mikarregui/UncrushableHelper/compare/v0.1.1...v0.1.2
