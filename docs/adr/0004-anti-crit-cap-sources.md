@@ -122,3 +122,43 @@ That makes the validation primary-source: the three components are each independ
 - Warriors and paladins with a shield equipped now see the same anti-crit header line. This is new UI surface; it adds ~18px under the avoidance breakdown, before the raid-buffs section.
 - The `wantsExtended` flag in the UI now triggers on `snap.antiCrit ~= nil` (any tank-shaped character) plus the existing personal-cooldowns trigger. `FRAME_HEIGHT_EXTENDED` bumped from 540 to 560 to fit the anti-crit header + personal CDs stack for block-mode tanks.
 - `snap.druidGoals` is no longer populated — the constant `ANTI_CRIT_DEFENSE_TARGET_DRUID = 415`, `ARMOR_MITIGATION_K_L70`, and the `snap.armor` field are removed. External code that read those would need to migrate to `snap.antiCrit` (which has the equivalent and richer information). The minimap-icon LDB tooltip is also slimmed: only the avoidance total + UNCRUSHABLE/CRUSHABLE verdict for block mode remains; defense, armor, and anti-crit lines previously shown there are removed in favor of the main window doing that work.
+
+## Postscript: 2026-05-07 — name resolution fix
+
+The "Combat rating index" section above defended reading the global `_G.CR_CRIT_TAKEN_MELEE` instead of hardcoding a numeric index, because numeric indices have shifted across clients (14/15/16). That defense was correct against the problem we anticipated. It missed a different one: **the name itself can be renamed across clients.**
+
+A user equipped a necklace with +24 Resilience on TBC Anniversary 2.5.5 and reported the addon showing `Resilience (0 rating) −0.00%` despite the character pane correctly displaying "Temple: 24" (Spanish for Resilience). Diagnostic in chat:
+
+```
+/run for _,n in ipairs({"CR_CRIT_TAKEN_MELEE","CR_CRIT_TAKEN_RANGED","CR_CRIT_TAKEN_SPELL","CR_RESILIENCE_PLAYER_DAMAGE_TAKEN"}) do local i=_G[n] print(n,"=",i,…) end
+
+CR_CRIT_TAKEN_MELEE = nil  rating: nil  bonus%: nil
+CR_CRIT_TAKEN_RANGED = nil  rating: nil  bonus%: nil
+CR_CRIT_TAKEN_SPELL = nil  rating: nil  bonus%: nil
+CR_RESILIENCE_PLAYER_DAMAGE_TAKEN = 16  rating: 24  bonus%: 0.61
+```
+
+In TBC Anniversary 2.5.5 Blizzard collapsed the three TBC sub-ratings (`CR_CRIT_TAKEN_MELEE/_RANGED/_SPELL`) into a single named global `CR_RESILIENCE_PLAYER_DAMAGE_TAKEN` (index 16) and removed the old names from the global table. The addon's `if ns.CR_CRIT_TAKEN_MELEE then …` guard skipped silently — no error, no warning, just `fromResil = 0` and an under-credited anti-crit goal for any tank with Resilience.
+
+A second diagnostic confirmed both old-style indices still work as raw numbers in this client (idx 15 returns 24 / 0.6088%; idx 16 returns 24 / 0.6099%) — the underlying rating is alive at multiple indices for backward compatibility, but only the new name is exposed in the global table.
+
+### Updated decision
+
+Read a chain of known names instead of just one:
+
+```lua
+ns.CR_RESILIENCE = _G.CR_RESILIENCE_PLAYER_DAMAGE_TAKEN
+                or _G.CR_CRIT_TAKEN_MELEE
+```
+
+The TBC 2.4 retail name is kept as fallback, in priority order after the 2.5.5 name. If a future patch renames again, we add another link to the chain — cheap, additive, no risk of silent regression on existing clients. We deliberately do **not** add a numeric fallback (`or 16`): a hardcoded index that points to the wrong rating in a future patch would silently report wrong values instead of zero, and a wrong non-zero is harder to notice than a missing line. Zero with a known cause is the right failure mode.
+
+### Generalized lesson
+
+The chain-of-names pattern applies to any combat-rating constant the addon reads. Currently we only read `CR_RESILIENCE` this way; defense skill and the avoidance components flow through `UnitDefense` / `GetDodgeChance` etc. (no constant lookup). If a future feature adds another `GetCombatRating(<index>)` call, it should resolve the index through a chain of known historical names, not a single global, and not a literal number.
+
+### What we should have caught earlier
+
+ADR 0004's "Validation cases" table listed several rows with non-zero Resilience (e.g. "Druid feral, bear: 410 def + 100 resil → 7.94%"). None of them were verified against a real character with Resilience equipped — they were derived from the formula on paper. The "Direct in-game verification" paragraph at the bottom of the Validation section described the test plan ("equip a piece with Resilience → the line picks up the rating") but it was not actually executed before the 1.0.0 release. If it had been, this bug would have surfaced immediately.
+
+Going forward: any ADR that claims "verified in-game" must mean *executed* in-game, not *expected to work* in-game. Theoretical validation tables are useful for documenting the math, but they don't substitute for running the code against the live API.
