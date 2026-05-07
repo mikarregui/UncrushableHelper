@@ -1,6 +1,6 @@
 ## Interface: 20505
-## Title: Uncrushable Helper
-## Notes: TBC tank avoidance cap tracker (Warrior/Paladin/Druid).
+## Title: Uncrushable Helper |cff888888(Avoidance / Crush Cap)|r
+## Notes: TBC tank avoidance / crush cap / uncrushable & anti-crit cap tracker — Miss + Dodge + Parry + Block vs +3 boss. Warrior, Paladin, Druid.
 ## Author: mikarregui
 ## Version: @project-version@
 ## SavedVariables: UncrushableHelperDB

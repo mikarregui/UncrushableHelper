@@ -4,7 +4,7 @@
 
 # UncrushableHelper
 
-> Tell a TBC tank — at a glance — whether they're uncrushable. Breakdown, raid-buff projection, and the math you'd otherwise pull out of a spreadsheet.
+> TBC tank **avoidance / crush cap** tracker — tells you at a glance if you're **uncrushable** (102.4% Miss + Dodge + Parry + Block) and **crit-immune** (5.6% anti-crit cap). Breakdown, raid-buff projection, anti-crit goal, and the math you'd otherwise pull out of a spreadsheet.
 
 [![Release](https://img.shields.io/github/v/release/mikarregui/UncrushableHelper?sort=semver&display_name=tag)](https://github.com/mikarregui/UncrushableHelper/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
